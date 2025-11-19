@@ -1,0 +1,15 @@
+# Dependencies
+/node_modules
+/movies-api/node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+
+# MongoDB data directory
+/movies-api/data/db
+/movies-api/data/configdb
