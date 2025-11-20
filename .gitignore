@@ -13,3 +13,12 @@ yarn-error.log*
 # MongoDB data directory
 /movies-api/data/db
 /movies-api/data/configdb
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
