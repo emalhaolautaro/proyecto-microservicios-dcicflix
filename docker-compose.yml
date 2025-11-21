@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   frontend:
@@ -6,13 +6,13 @@ services:
     container_name: frontend_client
     restart: always
     ports:
-      - "3000:3000"  # Puerto de Vite expuesto
+      - "3000:3000" # Puerto de Vite expuesto
     volumes:
-      - ./frontend:/app      # Sincronización de código en vivo (Hot Reload)
-      - /app/node_modules    # Evita que se sobrescriban los módulos del contenedor
+      - ./frontend:/app # Sincronización de código en vivo (Hot Reload)
+      - /app/node_modules # Evita que se sobrescriban los módulos del contenedor
     depends_on:
       - random-movies-service # Espera (lógicamente) a que el backend esté listo
-  
+
   mongodb:
     image: mongo:latest
     container_name: mongodb_movies
@@ -74,6 +74,21 @@ services:
       - movies-api
     volumes:
       - ./random-movies-service:/app
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth_service
+    restart: always
+    ports:
+      - "8002:8002"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/auth_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./auth-service:/app
+      - /app/node_modules
 
 volumes:
   mongo_data:
