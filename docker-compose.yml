@@ -1,6 +1,18 @@
 version: '3.8'
 
 services:
+  frontend:
+    build: ./frontend
+    container_name: frontend_client
+    restart: always
+    ports:
+      - "3000:3000"  # Puerto de Vite expuesto
+    volumes:
+      - ./frontend:/app      # Sincronización de código en vivo (Hot Reload)
+      - /app/node_modules    # Evita que se sobrescriban los módulos del contenedor
+    depends_on:
+      - random-movies-service # Espera (lógicamente) a que el backend esté listo
+  
   mongodb:
     image: mongo:latest
     container_name: mongodb_movies

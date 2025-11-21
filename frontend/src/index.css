@@ -1,0 +1,57 @@
+/* Importamos la fuente estilo Terminal */
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000000; /* Negro absoluto */
+  color: #ffffff;
+  font-family: 'Courier New', Courier, monospace;
+  overflow-x: hidden;
+}
+
+/* --- CLASES DE UTILIDAD (NUESTRO MINI-FRAMEWORK) --- */
+.hacker-font {
+  font-family: 'VT323', monospace;
+}
+
+.neon-blue {
+  color: #00f3ff;
+  text-shadow: 0 0 10px #00f3ff, 0 0 20px #00f3ff;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.full-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* --- ANIMACIONES --- */
+
+/* Efecto de parpadeo (Glitch/Neon roto) */
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 0.99; text-shadow: 0 0 5px #00f3ff; }
+  20%, 24%, 55% { opacity: 0.4; text-shadow: none; }
+}
+
+.animate-flicker {
+  animation: flicker 2s infinite;
+}
+
+/* Efecto de aparición suave */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 1s ease-in forwards;
+}
