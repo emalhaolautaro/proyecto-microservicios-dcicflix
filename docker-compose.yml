@@ -6,12 +6,13 @@ services:
     container_name: frontend_client
     restart: always
     ports:
-      - "3000:3000" # Puerto de Vite expuesto
+      - "3000:3000"
     volumes:
-      - ./frontend:/app # Sincronización de código en vivo (Hot Reload)
-      - /app/node_modules # Evita que se sobrescriban los módulos del contenedor
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
-      - random-movies-service # Espera (lógicamente) a que el backend esté listo
+      - random-movies-service
+      - calification-service
 
   mongodb:
     image: mongo:latest
@@ -88,6 +89,58 @@ services:
         condition: service_healthy
     volumes:
       - ./auth-service:/app
+      - /app/node_modules
+
+  # RabbitMQ para el sistema de mensajería
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_broker
+    restart: always
+    ports:
+      - "5672:5672"    # Puerto AMQP
+      - "15672:15672"  # Puerto Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio para recibir calificaciones y enviarlas a RabbitMQ
+  calification-service:
+    build: ./calification-service
+    container_name: calification_service
+    restart: always
+    ports:
+      - "8003:8003"
+    environment:
+      - RABBIT_HOST=amqp://admin:admin@rabbitmq:5672
+      - QUEUE_NAME=opiniones_queue
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./calification-service:/app
+      - /app/node_modules
+
+  # Servicio consumidor que guarda opiniones en MongoDB
+  opinion-service:
+    build: ./opinion-service
+    container_name: opinion_service
+    restart: always
+    environment:
+      - RABBIT_HOST=amqp://admin:admin@rabbitmq:5672
+      - MONGO_URI=mongodb://mongodb:27017/opiniones_db
+      - QUEUE_NAME=opiniones_queue
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./opinion-service:/app
       - /app/node_modules
 
 volumes:

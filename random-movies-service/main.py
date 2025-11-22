@@ -25,7 +25,7 @@ def get_random_movies():
         if len(movies) < 2:
             return movies  # Si hay pocas, devolvemos todas
         
-        return random.sample(movies, 2)
+        return random.sample(movies, 10)
     except requests.exceptions.RequestException as e:
         return {"error": f"No se pudo contactar con el servicio de películas: {str(e)}"}
     except Exception as e:

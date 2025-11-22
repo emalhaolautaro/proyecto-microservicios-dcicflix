@@ -1,0 +1,17 @@
+{
+  "name": "opinion-service",
+  "version": "1.0.0",
+  "description": "Servicio consumidor de RabbitMQ para guardar opiniones en MongoDB",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.3",
+    "mongoose": "^8.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

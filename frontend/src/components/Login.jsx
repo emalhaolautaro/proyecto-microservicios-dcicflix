@@ -1,219 +1,436 @@
 import React, { useState } from 'react';
 
-const Login = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+function Login({ onLoginSuccess }) {
+  const [isRegistering, setIsRegistering] = useState(false);
+  
+  // Estados para Login
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  
+  // Estados para Registro
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8002/login', {
+      const response = await fetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: loginEmail, 
+          password: loginPassword 
+        })
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setTimeout(() => {
-          onLoginSuccess(data.user.profiles, data.token);
-        }, 800);
+        // Adaptar los perfiles al formato que espera el frontend
+        const profiles = data.user.profiles.map((p, idx) => ({
+          id: p._id || `profile_${idx}`,
+          name: p.name,
+          avatar: p.avatar,
+          isKid: p.isKid,
+          userEmail: data.user.email 
+        }));
+        
+        onLoginSuccess(data.user.profiles, data.token, data.user.email);
       } else {
-        setError(data.message || 'Acceso denegado');
-        setLoading(false);
+        setError(data.message || 'Error al iniciar sesión');
       }
     } catch (err) {
-      setError('Error de conexión al mainframe');
+      console.error('Error:', err);
+      setError('Error de conexión con el servidor');
+    } finally {
       setLoading(false);
     }
   };
 
-  // Estilos reutilizables
-  const inputStyle = {
-    boxSizing: 'border-box', // <--- CRUCIAL: Asegura que el padding no rompa el ancho
-    padding: '15px',
-    background: 'rgba(0, 0, 0, 0.7)', 
-    border: '1px solid #00f3ff', // Borde simétrico para balance visual perfecto
-    borderRadius: '5px', // Pequeño redondeo para que coincida con el contenedor
-    color: '#00f3ff',
-    fontFamily: 'monospace',
-    fontSize: '1rem',
-    outline: 'none',
-    transition: 'all 0.3s ease',
-    width: '100%', 
-    textAlign: 'center', // Texto centrado
-    caretColor: '#00f3ff'
-  };
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    
+    // Validaciones
+    if (!registerEmail || !registerPassword || !confirmPassword) {
+      setError('Todos los campos son obligatorios');
+      return;
+    }
 
-  // Estilo para los Labels
-  const labelStyle = {
-    display: 'block',
-    color: '#00f3ff', 
-    fontSize: '0.9rem',
-    marginBottom: '10px',
-    fontFamily: 'monospace',
-    textAlign: 'center', // Label centrado
-    fontWeight: 'bold',
-    letterSpacing: '2px', 
-    textShadow: '0 0 8px rgba(0, 243, 255, 0.6)', 
-    textTransform: 'uppercase'
+    if (registerPassword !== confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (registerPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: registerEmail, 
+          password: registerPassword 
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccessMessage('¡Usuario creado exitosamente! Ya puedes iniciar sesión.');
+        // Limpiar formulario
+        setRegisterEmail('');
+        setRegisterPassword('');
+        setConfirmPassword('');
+        // Cambiar a login después de 2 segundos
+        setTimeout(() => {
+          setIsRegistering(false);
+          setSuccessMessage('');
+        }, 2000);
+      } else {
+        setError(data.message || 'Error al crear usuario');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setError('Error de conexión con el servidor');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="full-screen flex-center" style={{ 
-      flexDirection: 'column', 
-      background: '#000', 
-      backgroundImage: 'radial-gradient(circle at center, #112 0%, #000 100%)',
-      color: 'white',
-      position: 'relative',
-      overflow: 'hidden',
-      height: '100vh',
+    <div style={{
+      minHeight: '100vh',
       display: 'flex',
       justifyContent: 'center',
-      alignItems: 'center'
+      alignItems: 'center',
+      background: 'linear-gradient(135deg, #000000 0%, #1a1a2e 100%)',
+      padding: '20px'
     }}>
-      {/* Estilos globales para corregir el autocompletado del navegador */}
-      <style>
-        {`
-          * {
-            box-sizing: border-box; /* Asegura cálculo de medidas correcto en todo */
-          }
-          input:-webkit-autofill,
-          input:-webkit-autofill:hover, 
-          input:-webkit-autofill:focus, 
-          input:-webkit-autofill:active  {
-            -webkit-box-shadow: 0 0 0 30px #050505 inset !important;
-            -webkit-text-fill-color: #00f3ff !important;
-            transition: background-color 5000s ease-in-out 0s;
-            text-align: center !important;
-          }
-          ::placeholder {
-            color: #445566;
-            opacity: 1; 
-            text-align: center;
-          }
-        `}
-      </style>
-
-      {/* Fondo Grid decorativo */}
       <div style={{
-        position: 'absolute', width: '100%', height: '100%', 
-        background: 'linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px)',
-        backgroundSize: '40px 40px', zIndex: 0, pointerEvents: 'none'
-      }}></div>
-
-      {/* CONTENEDOR PRINCIPAL (TARJETA) */}
-      <div style={{ 
-        zIndex: 1, 
-        padding: '3rem', 
+        background: '#0a0a0a',
         border: '2px solid #00f3ff',
-        borderRadius: '20px',
-        boxShadow: '0 0 30px rgba(0, 243, 255, 0.15), inset 0 0 20px rgba(0, 243, 255, 0.1)',
-        backgroundColor: 'rgba(0,0,0,0.85)',
+        borderRadius: '10px',
+        padding: '40px',
         maxWidth: '450px',
-        width: '90%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center' // Asegura centrado vertical del contenido
+        width: '100%',
+        boxShadow: '0 0 30px rgba(0, 243, 255, 0.3)'
       }}>
+        {/* Logo */}
         <h1 className="hacker-font neon-blue" style={{ 
-          textAlign: 'center', 
-          marginBottom: '2rem', 
-          fontSize: '2rem',
-          fontFamily: 'monospace',
-          letterSpacing: '3px',
-          color: '#00f3ff',
-          textShadow: '0 0 10px #00f3ff',
-          width: '100%'
+          fontSize: '2.5rem', 
+          textAlign: 'center',
+          marginBottom: '10px'
         }}>
-          ACCESS<span style={{ color: 'white', textShadow: 'none' }}>_CONTROL</span>
+          DCIC<span style={{ color: 'white' }}>FLIX</span>
         </h1>
         
-        <form onSubmit={handleSubmit} style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '2rem', 
-          width: '100%',
-          alignItems: 'center'
+        <p style={{
+          textAlign: 'center',
+          color: '#666',
+          fontFamily: 'monospace',
+          fontSize: '0.9rem',
+          marginBottom: '30px'
         }}>
-          
-          <div style={{ width: '100%', textAlign: 'center' }}>
-            <label style={labelStyle}>Identificador de Usuario</label>
-            <input 
-              type="email" 
-              placeholder="user@dcicflix.com" 
-              value={email} onChange={(e) => setEmail(e.target.value)}
-              style={inputStyle}
-              onFocus={(e) => { e.target.style.boxShadow = '0 0 15px rgba(0,243,255,0.6)'; e.target.style.background = 'rgba(0, 243, 255, 0.05)'; }}
-              onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.background = 'rgba(0, 0, 0, 0.7)'; }}
-            />
-          </div>
+          {isRegistering ? 'Crear nueva cuenta' : 'Acceso al sistema'}
+        </p>
 
-          <div style={{ width: '100%', textAlign: 'center' }}>
-            <label style={labelStyle}>Clave de Acceso</label>
-            <input 
-              type="password" 
-              placeholder="••••••••" 
-              value={password} onChange={(e) => setPassword(e.target.value)}
-              style={inputStyle}
-              onFocus={(e) => { e.target.style.boxShadow = '0 0 15px rgba(0,243,255,0.6)'; e.target.style.background = 'rgba(0, 243, 255, 0.05)'; }}
-              onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.background = 'rgba(0, 0, 0, 0.7)'; }}
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            style={{ 
-              marginTop: '1rem',
-              padding: '15px 30px', 
-              width: '100%',
-              background: loading ? '#333' : 'transparent', 
-              color: loading ? '#888' : '#00f3ff', 
-              border: '1px solid #00f3ff',
-              borderRadius: '10px',
-              cursor: loading ? 'not-allowed' : 'pointer', 
-              fontFamily: 'monospace',
-              fontSize: '1.2rem',
-              letterSpacing: '3px',
-              fontWeight: 'bold',
-              transition: 'all 0.3s',
-              boxShadow: loading ? 'none' : '0 0 10px rgba(0, 243, 255, 0.1)',
-              textTransform: 'uppercase'
-            }}
-            onMouseEnter={(e) => { if(!loading) { e.target.style.background = '#00f3ff'; e.target.style.color = '#000'; e.target.style.boxShadow = '0 0 25px rgba(0, 243, 255, 0.6)'; } }}
-            onMouseLeave={(e) => { if(!loading) { e.target.style.background = 'transparent'; e.target.style.color = '#00f3ff'; e.target.style.boxShadow = '0 0 10px rgba(0, 243, 255, 0.1)'; } }}
-          >
-            {loading ? 'DESENCRIPTANDO...' : 'INICIAR_SESIÓN >'}
-          </button>
-        </form>
-        
+        {/* Mensajes de error/éxito */}
         {error && (
-          <div style={{ 
-            marginTop: '1.5rem', 
-            padding: '10px', 
-            width: '100%',
-            background: 'rgba(255, 0, 0, 0.1)', 
-            border: '1px solid red', 
+          <div style={{
+            background: '#ff0000',
+            color: 'white',
+            padding: '10px',
             borderRadius: '5px',
-            color: '#ff5555', 
+            marginBottom: '20px',
             textAlign: 'center',
             fontFamily: 'monospace',
-            boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)'
+            fontSize: '0.9rem'
           }}>
-            ⚠ {error}
+            ⚠️ {error}
           </div>
         )}
+
+        {successMessage && (
+          <div style={{
+            background: '#00ff00',
+            color: 'black',
+            padding: '10px',
+            borderRadius: '5px',
+            marginBottom: '20px',
+            textAlign: 'center',
+            fontFamily: 'monospace',
+            fontSize: '0.9rem',
+            fontWeight: 'bold'
+          }}>
+            ✓ {successMessage}
+          </div>
+        )}
+
+        {/* Formulario de LOGIN */}
+        {!isRegistering ? (
+          <form onSubmit={handleLogin}>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                color: '#00f3ff', 
+                marginBottom: '8px',
+                fontFamily: 'monospace'
+              }}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#111',
+                  border: '1px solid #333',
+                  borderRadius: '5px',
+                  color: 'white',
+                  fontFamily: 'monospace',
+                  fontSize: '1rem'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#00f3ff'}
+                onBlur={(e) => e.target.style.borderColor = '#333'}
+              />
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{ 
+                display: 'block', 
+                color: '#00f3ff', 
+                marginBottom: '8px',
+                fontFamily: 'monospace'
+              }}>
+                Contraseña
+              </label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#111',
+                  border: '1px solid #333',
+                  borderRadius: '5px',
+                  color: 'white',
+                  fontFamily: 'monospace',
+                  fontSize: '1rem'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#00f3ff'}
+                onBlur={(e) => e.target.style.borderColor = '#333'}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#00f3ff',
+                color: 'black',
+                border: 'none',
+                borderRadius: '5px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontFamily: '"VT323", monospace',
+                transition: 'all 0.2s',
+                opacity: loading ? 0.7 : 1
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) e.target.style.background = '#00d4e6';
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) e.target.style.background = '#00f3ff';
+              }}
+            >
+              {loading ? 'CONECTANDO...' : 'INICIAR SESIÓN'}
+            </button>
+          </form>
+        ) : (
+          // Formulario de REGISTRO
+          <form onSubmit={handleRegister}>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                color: '#00f3ff', 
+                marginBottom: '8px',
+                fontFamily: 'monospace'
+              }}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={registerEmail}
+                onChange={(e) => setRegisterEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#111',
+                  border: '1px solid #333',
+                  borderRadius: '5px',
+                  color: 'white',
+                  fontFamily: 'monospace',
+                  fontSize: '1rem'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#00f3ff'}
+                onBlur={(e) => e.target.style.borderColor = '#333'}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                color: '#00f3ff', 
+                marginBottom: '8px',
+                fontFamily: 'monospace'
+              }}>
+                Contraseña
+              </label>
+              <input
+                type="password"
+                value={registerPassword}
+                onChange={(e) => setRegisterPassword(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#111',
+                  border: '1px solid #333',
+                  borderRadius: '5px',
+                  color: 'white',
+                  fontFamily: 'monospace',
+                  fontSize: '1rem'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#00f3ff'}
+                onBlur={(e) => e.target.style.borderColor = '#333'}
+              />
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{ 
+                display: 'block', 
+                color: '#00f3ff', 
+                marginBottom: '8px',
+                fontFamily: 'monospace'
+              }}>
+                Confirmar Contraseña
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#111',
+                  border: '1px solid #333',
+                  borderRadius: '5px',
+                  color: 'white',
+                  fontFamily: 'monospace',
+                  fontSize: '1rem'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#00f3ff'}
+                onBlur={(e) => e.target.style.borderColor = '#333'}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#00f3ff',
+                color: 'black',
+                border: 'none',
+                borderRadius: '5px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontFamily: '"VT323", monospace',
+                transition: 'all 0.2s',
+                opacity: loading ? 0.7 : 1
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) e.target.style.background = '#00d4e6';
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) e.target.style.background = '#00f3ff';
+              }}
+            >
+              {loading ? 'CREANDO...' : 'CREAR CUENTA'}
+            </button>
+          </form>
+        )}
+
+        {/* Botón para cambiar entre Login y Registro */}
+        <div style={{
+          marginTop: '25px',
+          textAlign: 'center',
+          paddingTop: '20px',
+          borderTop: '1px solid #333'
+        }}>
+          <p style={{ color: '#666', fontFamily: 'monospace', fontSize: '0.9rem' }}>
+            {isRegistering ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}
+          </p>
+          <button
+            onClick={() => {
+              setIsRegistering(!isRegistering);
+              setError('');
+              setSuccessMessage('');
+            }}
+            style={{
+              background: 'transparent',
+              border: '1px solid #00f3ff',
+              color: '#00f3ff',
+              padding: '8px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              marginTop: '10px',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = '#00f3ff';
+              e.target.style.color = 'black';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'transparent';
+              e.target.style.color = '#00f3ff';
+            }}
+          >
+            {isRegistering ? 'Volver a Login' : 'Crear Usuario'}
+          </button>
+        </div>
       </div>
     </div>
   );
-};
+}
 
 export default Login;
