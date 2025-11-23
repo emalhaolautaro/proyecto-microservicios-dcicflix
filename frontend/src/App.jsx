@@ -3,6 +3,7 @@ import IntroAnimation from './components/IntroAnimation';
 import Login from './components/Login';
 import ProfileSelector from './components/ProfileSelector';
 import MovieDetail from './components/MovieDetail';
+import UserRatings from './components/UserRatings';
 import './index.css';
 
 function App() {
@@ -19,6 +20,9 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [showRatings, setShowRatings] = useState(false);
 
   // --- LOGIN ---
   const handleLoginSuccess = (profiles, token, email) => {
@@ -62,23 +66,56 @@ function App() {
     setSelectedMovie(null);
   };
 
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      // Si el campo está vacío, recargar películas aleatorias
+      setIsSearching(false);
+      loadRandomMovies();
+      return;
+    }
+
+    setLoading(true);
+    setIsSearching(true);
+
+    fetch(`/search/${encodeURIComponent(searchQuery)}`)
+      .then(res => res.json())
+      .then(data => {
+        console.log("Resultados de búsqueda:", data);
+        setMovies(data.movies || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error buscando películas:", err);
+        setLoading(false);
+      });
+  };
+
+  const loadRandomMovies = () => {
+    setLoading(true);
+    fetch("/random")
+      .then(res => res.json())
+      .then(data => {
+        console.log("Películas recibidas:", data);
+        setMovies(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error conectando:", err);
+        setLoading(false);
+      });
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsSearching(false);
+    loadRandomMovies();
+  };
+
   // --- EFECTO: Carga películas ---
   useEffect(() => {
     if (!showIntro && isLoggedIn && currentProfile) {
-      setLoading(true);
-
       setTimeout(() => {
-        fetch("/random")
-          .then(res => res.json())
-          .then(data => {
-            console.log("Películas recibidas:", data);
-            setMovies(data);
-            setLoading(false);
-          })
-          .catch(err => {
-            console.error("Error conectando:", err);
-            setLoading(false);
-          });
+        loadRandomMovies();
       }, 500);
     }
   }, [showIntro, isLoggedIn, currentProfile]);
@@ -127,6 +164,30 @@ function App() {
             </h1>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <button
+                onClick={() => setShowRatings(true)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #00f3ff',
+                  color: '#00f3ff',
+                  padding: '8px 15px',
+                  cursor: 'pointer',
+                  fontFamily: 'monospace',
+                  fontSize: '0.9rem',
+                  borderRadius: '5px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#00f3ff';
+                  e.target.style.color = 'black';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'transparent';
+                  e.target.style.color = '#00f3ff';
+                }}
+              >
+                ★ MIS CALIFICACIONES
+              </button>
               <div style={{ fontFamily: 'monospace', color: '#888', textAlign: 'right', lineHeight: '1.2' }}>
                 <div>
                   Usuario: <span style={{ color: '#00f3ff', fontWeight: 'bold' }}>
@@ -156,8 +217,66 @@ function App() {
           </header>
 
           <main>
+            <div style={{ marginBottom: '2rem' }}>
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                alignItems: 'center',
+                marginBottom: '1rem'
+              }}>
+                <input
+                  type="text"
+                  placeholder="Buscar película..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  style={{
+                    flex: 1,
+                    padding: '10px 15px',
+                    background: '#111',
+                    border: '1px solid #00f3ff',
+                    color: '#00f3ff',
+                    fontFamily: 'monospace',
+                    fontSize: '1rem',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  onClick={handleSearch}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#00f3ff',
+                    color: '#000',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'monospace',
+                    fontWeight: 'bold',
+                    fontSize: '1rem'
+                  }}
+                >
+                  BUSCAR
+                </button>
+                {isSearching && (
+                  <button
+                    onClick={handleClearSearch}
+                    style={{
+                      padding: '10px 20px',
+                      background: 'transparent',
+                      color: '#00f3ff',
+                      border: '1px solid #00f3ff',
+                      cursor: 'pointer',
+                      fontFamily: 'monospace',
+                      fontSize: '1rem'
+                    }}
+                  >
+                    LIMPIAR
+                  </button>
+                )}
+              </div>
+            </div>
+
             <h2 className="hacker-font" style={{ color: '#ccc' }}>
-              &gt; Películas Recomendadas
+              {isSearching ? `> Resultados de búsqueda (${movies.length})` : '> Películas Recomendadas'}
             </h2>
 
             {loading && (
@@ -234,6 +353,14 @@ function App() {
           movie={selectedMovie}
           onClose={handleCloseModal}
           currentProfile={currentProfile}
+        />
+      )}
+
+      {showRatings && currentProfile && (
+        <UserRatings
+          currentProfile={currentProfile}
+          onClose={() => setShowRatings(false)}
+          onMovieClick={handleMovieClick}
         />
       )}
     </div>

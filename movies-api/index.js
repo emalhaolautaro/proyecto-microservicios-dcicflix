@@ -40,6 +40,24 @@ app.get('/movies', async (req, res) => {
   }
 });
 
+// Buscar películas por nombre
+app.get('/movies/search/:query', async (req, res) => {
+  try {
+    const searchQuery = req.params.query;
+    const movies = await db.collection('movies').find({
+      title: { $regex: searchQuery, $options: 'i' }
+    }).limit(20).toArray();
+    
+    res.json({
+      count: movies.length,
+      movies: movies
+    });
+  } catch (error) {
+    console.error('Error buscando películas:', error);
+    res.status(500).json({ error: 'Error buscando películas' });
+  }
+});
+
 // Obtener película por ID
 app.get('/movies/:id', async (req, res) => {
   try {

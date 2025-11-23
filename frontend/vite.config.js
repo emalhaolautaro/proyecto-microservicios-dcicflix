@@ -11,6 +11,10 @@ export default defineConfig({
         target: 'http://random-movies-service:8001',
         changeOrigin: true
       },
+      '/search': {
+        target: 'http://search-movies-service:8005',
+        changeOrigin: true
+      },
       '/login': {
         target: 'http://auth-service:8002',
         changeOrigin: true
@@ -25,6 +29,10 @@ export default defineConfig({
       },
       '/calificar': {
         target: 'http://calification-service:8003',
+        changeOrigin: true
+      },
+      '/ratings': {
+        target: 'http://ratings-service:8004',
         changeOrigin: true
       }
     }
