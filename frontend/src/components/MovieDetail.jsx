@@ -13,15 +13,38 @@ function MovieDetail({ movie, onClose, currentProfile }) {
     }
 
     console.log("🔍 DEBUG currentProfile:", currentProfile);
+    console.log("🔍 DEBUG movie:", movie);
 
     setIsSubmitting(true);
     
     try {
+      // Extraer correctamente el movie_id desde múltiples fuentes
+      let movieId = null;
+      
+      // Primero intentar con movie_id_str (del recomendador)
+      if (movie.movie_id_str) {
+        movieId = movie.movie_id_str;
+      }
+      // Si viene como objeto con $oid (formato MongoDB search/random)
+      else if (typeof movie._id === 'object' && movie._id !== null && movie._id.$oid) {
+        movieId = movie._id.$oid;
+      }
+      // Si _id es un string directo
+      else if (typeof movie._id === 'string') {
+        movieId = movie._id;
+      }
+      
+      if (!movieId) {
+        console.error("❌ No se pudo extraer movie_id. Movie object:", movie);
+        alert("Error: No se puede identificar la película. Por favor recarga la página.");
+        return;
+      }
+      
       const payload = {
-        user_id: currentProfile.userEmail || 'unknown', // Email de la cuenta
-        profile_id: currentProfile.id, // ID del perfil MongoDB
-        profile_name: currentProfile.name, // Nombre del perfil (para debug)
-        movie_id: movie._id?.$oid || movie._id,
+        user_id: currentProfile.userEmail || 'unknown',
+        profile_id: currentProfile.id,
+        profile_name: currentProfile.name,
+        movie_id: movieId,
         movie_title: movie.title,
         score: rating
       };
@@ -34,25 +57,48 @@ function MovieDetail({ movie, onClose, currentProfile }) {
         body: JSON.stringify(payload)
       });
 
+      const responseData = await response.json();
+      
       if (response.ok) {
+        console.log("✅ Calificación enviada exitosamente:", responseData);
         setSubmitSuccess(true);
         setTimeout(() => {
           onClose();
         }, 1500);
       } else {
-        alert("Error al enviar calificación");
+        console.error("❌ Error response:", responseData);
+        alert("Error al enviar calificación: " + (responseData.error || response.statusText));
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("Error de conexión");
+      alert("Error de conexión: " + error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const movieRating = movie.imdb?.rating?.$numberDouble || movie.imdb?.rating || "N/A";
-  const year = movie.year?.$numberInt || movie.year || "N/A";
-  const runtime = movie.runtime?.$numberInt || movie.runtime || "N/A";
+  // Extraer rating desde múltiples posibles ubicaciones
+  let movieRating = "N/A";
+  if (movie.imdb_rating !== undefined && movie.imdb_rating !== null) {
+    movieRating = movie.imdb_rating;
+  } else if (movie.imdb?.rating?.$numberDouble) {
+    movieRating = movie.imdb.rating.$numberDouble;
+  } else if (movie.imdb?.rating) {
+    movieRating = movie.imdb.rating;
+  }
+  
+  const year = movie.year || "N/A";
+  const runtime = movie.runtime || "N/A";
+  
+  // Procesar géneros: vienen como string separado por comas desde MongoDB
+  let genresArray = [];
+  if (movie.genres) {
+    if (Array.isArray(movie.genres)) {
+      genresArray = movie.genres;
+    } else if (typeof movie.genres === 'string') {
+      genresArray = movie.genres.split(',').map(g => g.trim()).filter(g => g);
+    }
+  }
 
   return (
     <div 
@@ -168,9 +214,9 @@ function MovieDetail({ movie, onClose, currentProfile }) {
             </div>
 
             {/* Géneros */}
-            {movie.genres && movie.genres.length > 0 && (
+            {genresArray.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
-                {movie.genres.map((genre, idx) => (
+                {genresArray.map((genre, idx) => (
                   <span 
                     key={idx}
                     style={{

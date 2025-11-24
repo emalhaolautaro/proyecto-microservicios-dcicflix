@@ -13,6 +13,7 @@ services:
     depends_on:
       - random-movies-service
       - calification-service
+      - search-movies-service
 
   mongodb:
     image: mongo:latest
@@ -169,6 +170,21 @@ services:
     volumes:
       - ./ratings-service:/app
       - /app/node_modules
+
+  # Servicio de recomendaciones
+  recommendation-service:
+    build: ./recommendation-service
+    container_name: recommendation_service
+    restart: always
+    ports:
+      - "8006:8006"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./recommendation-service:/app
 
 volumes:
   mongo_data:

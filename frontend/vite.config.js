@@ -34,6 +34,10 @@ export default defineConfig({
       '/ratings': {
         target: 'http://ratings-service:8004',
         changeOrigin: true
+      },
+      '/recommendations': {
+        target: 'http://recommendation-service:8006',
+        changeOrigin: true
       }
     }
   }

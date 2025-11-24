@@ -14,7 +14,7 @@ function App() {
   const [userProfiles, setUserProfiles] = useState([]);
   const [currentProfile, setCurrentProfile] = useState(null);
   const [authToken, setAuthToken] = useState(null);
-  const [userEmail, setUserEmail] = useState(null); // <--- NUEVO: email real del usuario logueado
+  const [userEmail, setUserEmail] = useState(null);
 
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,20 +24,21 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [showRatings, setShowRatings] = useState(false);
 
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
   // --- LOGIN ---
   const handleLoginSuccess = (profiles, token, email) => {
     console.log("Login exitoso. Perfiles cargados:", profiles);
 
-    // Guardamos el email real del usuario
     setUserEmail(email);
 
-    // Le agregamos ese email a cada perfil
     const profilesWithEmail = profiles.map((p, idx) => ({
       id: p._id || `profile_${idx}`,
       name: p.name,
       avatar: p.avatar,
       isKid: p.isKid,
-      userEmail: email // <--- AHORA SÍ CORRECTO
+      userEmail: email
     }));
 
     setUserProfiles(profilesWithEmail);
@@ -68,7 +69,6 @@ function App() {
 
   const handleSearch = () => {
     if (!searchQuery.trim()) {
-      // Si el campo está vacío, recargar películas aleatorias
       setIsSearching(false);
       loadRandomMovies();
       return;
@@ -105,6 +105,33 @@ function App() {
       });
   };
 
+  const loadRecommendations = () => {
+    if (!currentProfile || !userEmail) {
+      console.log("No hay perfil o email");
+      return;
+    }
+
+    setLoadingRecommendations(true);
+    const params = new URLSearchParams({
+      email: userEmail,
+      profile_name: currentProfile.name
+    });
+
+    fetch(`/recommendations?${params}`)
+      .then(res => res.json())
+      .then(data => {
+        console.log("Recomendaciones recibidas:", data);
+        if (data.recommendations) {
+          setRecommendations(data.recommendations);
+        }
+        setLoadingRecommendations(false);
+      })
+      .catch(err => {
+        console.error("Error cargando recomendaciones:", err);
+        setLoadingRecommendations(false);
+      });
+  };
+
   const handleClearSearch = () => {
     setSearchQuery('');
     setIsSearching(false);
@@ -116,6 +143,7 @@ function App() {
     if (!showIntro && isLoggedIn && currentProfile) {
       setTimeout(() => {
         loadRandomMovies();
+        loadRecommendations();
       }, 500);
     }
   }, [showIntro, isLoggedIn, currentProfile]);
@@ -146,7 +174,7 @@ function App() {
             profiles={userProfiles}
             onSelectProfile={setCurrentProfile}
             token={authToken}
-            userEmail={userEmail}  // <--- MUY IMPORTANTE ✔
+            userEmail={userEmail}
           />
         </div>
       )}
@@ -344,6 +372,108 @@ function App() {
                 );
               })}
             </div>
+
+            {/* RECOMENDACIONES PERSONALIZADAS */}
+            <h2 className="hacker-font" style={{ color: '#ccc', marginTop: '3rem' }}>
+              {`> Creemos que podría interesarte...`}
+            </h2>
+
+            {loadingRecommendations && (
+              <p style={{ color: '#00f3ff', fontFamily: 'monospace' }}>
+                Analizando preferencias...
+              </p>
+            )}
+
+            {recommendations.length === 0 && !loadingRecommendations && (
+              <p style={{ color: '#888', fontFamily: 'monospace' }}>
+                No hay recomendaciones disponibles en este momento.
+              </p>
+            )}
+
+            {recommendations.length > 0 && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gap: '25px',
+                marginTop: '20px'
+              }}>
+                
+                {recommendations.map((movie, index) => {
+                  const uniqueId = movie.movie_id_str || index;
+                  const titulo = movie.title;
+                  const imagen = movie.poster;
+                  
+                  // Extraer rating igual que en MovieDetail
+                  let rating = "N/A";
+                  if (movie.imdb_rating !== undefined && movie.imdb_rating !== null) {
+                    rating = movie.imdb_rating;
+                  } else if (movie.imdb?.rating?.$numberDouble) {
+                    rating = movie.imdb.rating.$numberDouble;
+                  } else if (movie.imdb?.rating) {
+                    rating = movie.imdb.rating;
+                  } else if (movie.average_imdb_rating) {
+                    rating = movie.average_imdb_rating;
+                  }
+                  
+                  const predictedScore = movie.predicted_score?.toFixed(2) || "N/A";
+
+                  return (
+                    <div
+                      key={uniqueId}
+                      onClick={() => handleMovieClick(movie)}
+                      style={{
+                        backgroundColor: '#111',
+                        border: '1px solid #ff00ff',
+                        aspectRatio: '2/3',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s'
+                      }}
+                    >
+                      {imagen && (
+                        <img 
+                          src={imagen}
+                          alt={titulo}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      )}
+
+                      <div style={{
+                        position: 'absolute', top: '5px', right: '5px',
+                        background: '#ff00ff', color: 'black',
+                        fontWeight: 'bold', fontSize: '0.8rem',
+                        padding: '2px 5px', borderRadius: '3px',
+                        fontFamily: 'sans-serif'
+                      }}>
+                        ★ {rating}
+                      </div>
+
+                      <div style={{
+                        position: 'absolute', top: '5px', left: '5px',
+                        background: 'rgba(255,0,255,0.8)', color: 'black',
+                        fontWeight: 'bold', fontSize: '0.7rem',
+                        padding: '2px 5px', borderRadius: '3px',
+                        fontFamily: 'monospace'
+                      }}>
+                        Match: {predictedScore}
+                      </div>
+
+                      <div style={{
+                        position: 'absolute', bottom: 0, left: 0, right: 0,
+                        background: 'rgba(0,0,0,0.85)',
+                        borderTop: '2px solid #ff00ff',
+                        color: '#ff00ff',
+                        padding: '8px', textAlign: 'center',
+                        fontFamily: '"VT323", monospace', fontSize: '1.1rem'
+                      }}>
+                        {titulo}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </main>
         </div>
       )}

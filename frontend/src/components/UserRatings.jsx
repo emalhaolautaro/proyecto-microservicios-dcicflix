@@ -3,11 +3,9 @@ import React, { useState, useEffect } from 'react';
 function UserRatings({ currentProfile, onClose, onMovieClick }) {
   const [ratings, setRatings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
 
   useEffect(() => {
     loadRatings();
-    loadStats();
   }, []);
 
   const loadRatings = async () => {
@@ -26,15 +24,12 @@ function UserRatings({ currentProfile, onClose, onMovieClick }) {
     }
   };
 
-  const loadStats = async () => {
-    try {
-      const response = await fetch(`/ratings/stats/user/${encodeURIComponent(currentProfile.userEmail)}`);
-      const data = await response.json();
-      console.log("Estadísticas recibidas:", data);
-      setStats(data);
-    } catch (error) {
-      console.error("Error cargando estadísticas:", error);
-    }
+  // Calcular estadísticas directamente desde las calificaciones del usuario
+  const userStats = {
+    total: ratings.length,
+    average: ratings.length > 0 
+      ? (ratings.reduce((sum, r) => sum + r.score, 0) / ratings.length).toFixed(1)
+      : 0
   };
 
   const formatDate = (timestamp) => {
@@ -134,8 +129,8 @@ function UserRatings({ currentProfile, onClose, onMovieClick }) {
             Perfil: <span style={{ color: '#00f3ff' }}>{currentProfile.name}</span>
           </p>
 
-          {/* Estadísticas */}
-          {stats && stats.totalRatings > 0 && (
+          {/* Estadísticas del usuario */}
+          {!loading && userStats.total > 0 && (
             <div style={{
               display: 'flex',
               gap: '20px',
@@ -150,9 +145,9 @@ function UserRatings({ currentProfile, onClose, onMovieClick }) {
                 fontFamily: 'monospace',
                 fontSize: '0.9rem'
               }}>
-                <div style={{ color: '#888' }}>Total</div>
+                <div style={{ color: '#888' }}>Películas Calificadas</div>
                 <div style={{ color: '#00f3ff', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                  {stats.totalRatings}
+                  {userStats.total}
                 </div>
               </div>
               <div style={{
@@ -163,9 +158,9 @@ function UserRatings({ currentProfile, onClose, onMovieClick }) {
                 fontFamily: 'monospace',
                 fontSize: '0.9rem'
               }}>
-                <div style={{ color: '#888' }}>Promedio</div>
+                <div style={{ color: '#888' }}>Tu Promedio</div>
                 <div style={{ color: '#f5c518', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                  ★ {stats.averageScore?.toFixed(1)}
+                  ★ {userStats.average}
                 </div>
               </div>
             </div>
