@@ -306,10 +306,10 @@ def recommend_movies(df_interactions, df_movies_metadata, target_user_email, tar
 
     if 'social_score_A' not in unseen_movies_df.columns:
         unseen_movies_df['social_score_A'] = 0
-    unseen_movies_df['social_score_A'] = unseen_movies_df['social_score_A'].fillna(0)
+    unseen_movies_df['social_score_A'] = unseen_movies_df['social_score_A'].fillna(0) / 10.0
     
     # 3. Scores B y C
-    unseen_movies_df['quality_score_B'] = unseen_movies_df['imdb_rating'].fillna(5.0) / 10.0
+    unseen_movies_df['quality_score_B'] = unseen_movies_df['imdb_rating'].fillna(6.0) / 10.0
     unseen_movies_df['bonus_score_C'] = 0.0
     
     if favorite_genres_str:
