@@ -8,13 +8,32 @@ import './index.css';
 
 function App() {
   // --- ESTADOS ---
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(() => {
+    // No mostrar intro si ya hay sesión activa
+    return !localStorage.getItem('currentProfile');
+  });
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userProfiles, setUserProfiles] = useState([]);
-  const [currentProfile, setCurrentProfile] = useState(null);
-  const [authToken, setAuthToken] = useState(null);
-  const [userEmail, setUserEmail] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem('authToken');
+  });
+  
+  const [userProfiles, setUserProfiles] = useState(() => {
+    const saved = localStorage.getItem('userProfiles');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
+  const [currentProfile, setCurrentProfile] = useState(() => {
+    const saved = localStorage.getItem('currentProfile');
+    return saved ? JSON.parse(saved) : null;
+  });
+  
+  const [authToken, setAuthToken] = useState(() => {
+    return localStorage.getItem('authToken');
+  });
+  
+  const [userEmail, setUserEmail] = useState(() => {
+    return localStorage.getItem('userEmail');
+  });
 
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -32,6 +51,7 @@ function App() {
     console.log("Login exitoso. Perfiles cargados:", profiles);
 
     setUserEmail(email);
+    localStorage.setItem('userEmail', email);
 
     const profilesWithEmail = profiles.map((p, idx) => ({
       id: p._id || `profile_${idx}`,
@@ -42,12 +62,17 @@ function App() {
     }));
 
     setUserProfiles(profilesWithEmail);
+    localStorage.setItem('userProfiles', JSON.stringify(profilesWithEmail));
+    
     setAuthToken(token);
+    localStorage.setItem('authToken', token);
+    
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
     setCurrentProfile(null);
+    localStorage.removeItem('currentProfile');
     setMovies([]);
   };
 
@@ -57,6 +82,12 @@ function App() {
     setUserProfiles([]);
     setAuthToken(null);
     setUserEmail(null);
+    
+    // Limpiar localStorage
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userProfiles');
+    localStorage.removeItem('currentProfile');
   };
 
   const handleMovieClick = (movie) => {
@@ -137,6 +168,13 @@ function App() {
     setIsSearching(false);
     loadRandomMovies();
   };
+
+  // --- EFECTO: Guardar perfil actual en localStorage ---
+  useEffect(() => {
+    if (currentProfile) {
+      localStorage.setItem('currentProfile', JSON.stringify(currentProfile));
+    }
+  }, [currentProfile]);
 
   // --- EFECTO: Carga películas ---
   useEffect(() => {
