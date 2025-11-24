@@ -339,6 +339,18 @@ function App() {
                       cursor: 'pointer',
                       transition: 'transform 0.2s'
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#00f3ff';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                      e.currentTarget.style.zIndex = '10';
+                      e.currentTarget.style.boxShadow = '0 0 15px rgba(0, 243, 255, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#333';
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.zIndex = '1';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                   >
                     {imagen && (
                       <img 
@@ -403,7 +415,7 @@ function App() {
                   const titulo = movie.title;
                   const imagen = movie.poster;
                   
-                  // Extraer rating igual que en MovieDetail
+                  // Cálculo de rating para mostrar en la tarjeta
                   let rating = "N/A";
                   if (movie.imdb_rating !== undefined && movie.imdb_rating !== null) {
                     rating = movie.imdb_rating;
@@ -414,8 +426,6 @@ function App() {
                   } else if (movie.average_imdb_rating) {
                     rating = movie.average_imdb_rating;
                   }
-                  
-                  const predictedScore = movie.predicted_score?.toFixed(2) || "N/A";
 
                   return (
                     <div
@@ -430,6 +440,16 @@ function App() {
                         cursor: 'pointer',
                         transition: 'transform 0.2s'
                       }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.zIndex = '10';
+                        e.currentTarget.style.boxShadow = '0 0 15px rgba(255, 0, 255, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.zIndex = '1';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
                     >
                       {imagen && (
                         <img 
@@ -439,25 +459,17 @@ function App() {
                         />
                       )}
 
+                      {/* --- AQUÍ AGREGUÉ DE NUEVO EL BADGE DE RATING --- */}
                       <div style={{
                         position: 'absolute', top: '5px', right: '5px',
-                        background: '#ff00ff', color: 'black',
+                        background: '#ff00ff', color: 'black', // Color magenta para diferenciarlas
                         fontWeight: 'bold', fontSize: '0.8rem',
                         padding: '2px 5px', borderRadius: '3px',
                         fontFamily: 'sans-serif'
                       }}>
                         ★ {rating}
                       </div>
-
-                      <div style={{
-                        position: 'absolute', top: '5px', left: '5px',
-                        background: 'rgba(255,0,255,0.8)', color: 'black',
-                        fontWeight: 'bold', fontSize: '0.7rem',
-                        padding: '2px 5px', borderRadius: '3px',
-                        fontFamily: 'monospace'
-                      }}>
-                        Match: {predictedScore}
-                      </div>
+                      {/* ----------------------------------------------- */}
 
                       <div style={{
                         position: 'absolute', bottom: 0, left: 0, right: 0,

@@ -29,14 +29,19 @@ app.get('/', (req, res) => {
 // Obtener todas las películas
 app.get('/movies', async (req, res) => {
   try {
-    const movies = await db.collection('movies').find({}).limit(50).toArray();
+    const size = parseInt(req.query.size) || 12;
+    
+    const movies = await db.collection('movies').aggregate([
+      { $sample: { size: size } } // Magia de MongoDB: Elige al azar nativamente
+    ]).toArray();
+
     res.json({
       count: movies.length,
       movies: movies
     });
   } catch (error) {
-    console.error('Error obteniendo películas:', error);
-    res.status(500).json({ error: 'Error obteniendo películas' });
+    console.error('Error obteniendo random movies:', error);
+    res.status(500).json({ error: 'Error interno al obtener randoms' });
   }
 });
 
