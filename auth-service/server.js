@@ -3,10 +3,10 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('./models/User'); 
+const User = require('./models/User');
 
 const app = express();
-const PORT = 8002; 
+const PORT = 8002;
 const JWT_SECRET = 'secreto_super_seguro_para_la_facultad'; // En prod esto va en .env
 
 app.use(cors());
@@ -18,9 +18,10 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('🔥 Auth Service conectado a MongoDB'))
   .catch(err => console.error('Error conectando a Mongo:', err));
 
+// 1. REGISTRO (Crea usuario + Perfil inicial)
 app.post('/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, profileName } = req.body;
 
     // Validar si existe
     const existingUser = await User.findOne({ email });
@@ -30,12 +31,13 @@ app.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Crear usuario con un perfil inicial
+    const initialProfileName = profileName || "Unnamed";
     const newUser = new User({
       email,
       password: hashedPassword,
       profiles: [{
-        name: "Admin",
-        avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Admin",
+        name: initialProfileName,
+        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${initialProfileName}`,
         isKid: false
       }]
     });
@@ -51,7 +53,7 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Usuario no encontrado" });
 
@@ -78,19 +80,24 @@ app.post('/login', async (req, res) => {
 app.post('/profiles', async (req, res) => {
   try {
     const { token, name, avatar, isKid } = req.body; // En un caso real, el token va en headers
-    
-    if(!token) return res.status(401).json({message: "No autorizado"});
-    
+
+    if (!token) return res.status(401).json({ message: "No autorizado" });
+
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
 
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
+    // Validar límite de perfiles (Máximo 4)
+    if (user.profiles.length >= 4) {
+      return res.status(400).json({ message: "Límite de perfiles alcanzado (Máximo 4)" });
+    }
+
     // Push del nuevo perfil al array
-    user.profiles.push({ 
-      name, 
-      avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${name}`, 
-      isKid: isKid || false 
+    user.profiles.push({
+      name,
+      avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${name}`,
+      isKid: isKid || false
     });
 
     await user.save();
@@ -102,10 +109,10 @@ app.post('/profiles', async (req, res) => {
 
 // 4. OBTENER PERFILES (Para refrescar la pantalla de selección)
 app.get('/profiles', async (req, res) => {
-    // Aquí deberías leer el header Authorization, decodificar el token y buscar el usuario
-    // Por simplicidad del ejemplo, asumiremos que se pasa el userId o email por query param
-    // ... Implementación pendiente de autenticación real ...
-    res.json({ message: "Endpoint listo para implementar validación de token" });
+  // Aquí deberías leer el header Authorization, decodificar el token y buscar el usuario
+  // Por simplicidad del ejemplo, asumiremos que se pasa el userId o email por query param
+  // ... Implementación pendiente de autenticación real ...
+  res.json({ message: "Endpoint listo para implementar validación de token" });
 });
 
 
