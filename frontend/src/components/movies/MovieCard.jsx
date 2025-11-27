@@ -1,5 +1,26 @@
 import React from 'react';
 
+const NoImageIcon = ({ color = '#00f3ff' }) => (
+    <svg 
+        width="100%" 
+        height="100%" 
+        viewBox="0 0 200 300" 
+        fill="none" 
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ background: '#0a0a0a' }}
+    >
+        <rect x="50" y="80" width="100" height="100" stroke={color} strokeWidth="2" fill="none" strokeDasharray="5,5"/>
+        <circle cx="75" cy="110" r="8" fill={color} opacity="0.5"/>
+        <path d="M 60 150 L 80 130 L 100 145 L 130 115 L 140 125" stroke={color} strokeWidth="2" fill="none"/>
+        <text x="100" y="200" fontFamily="VT323, monospace" fontSize="16" fill={color} textAnchor="middle" opacity="0.7">
+            NO IMAGE
+        </text>
+        <text x="100" y="220" fontFamily="VT323, monospace" fontSize="14" fill={color} textAnchor="middle" opacity="0.5">
+            AVAILABLE
+        </text>
+    </svg>
+);
+
 const MovieCard = ({ movie, onClick, isRecommendation = false }) => {
     const uniqueId = movie._id?.$oid || movie._id || movie.movie_id_str;
     const titulo = movie.title;
@@ -49,13 +70,35 @@ const MovieCard = ({ movie, onClick, isRecommendation = false }) => {
                 e.currentTarget.style.boxShadow = 'none';
             }}
         >
-            {imagen && (
-                <img
-                    src={imagen}
-                    alt={titulo}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-            )}
+            <img
+                src={imagen || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}
+                alt={titulo}
+                style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover',
+                    display: imagen ? 'block' : 'none'
+                }}
+                onError={(e) => {
+                    e.target.style.display = 'none';
+                    const fallback = e.target.nextElementSibling;
+                    if (fallback) fallback.style.display = 'block';
+                }}
+            />
+            
+            <div 
+                className="no-image-fallback" 
+                style={{ 
+                    display: !imagen ? 'block' : 'none',
+                    width: '100%', 
+                    height: '100%',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0
+                }}
+            >
+                <NoImageIcon color={isRecommendation ? '#ff00ff' : '#00f3ff'} />
+            </div>
 
             <div style={{
                 position: 'absolute', top: '5px', right: '5px',

@@ -1,0 +1,122 @@
+.carousel-container {
+    margin-bottom: 40px;
+    width: 100%;
+}
+
+.carousel-title {
+    font-family: 'VT323', monospace;
+    font-size: 1.8rem;
+    color: #00f3ff;
+    text-align: left;
+    margin-bottom: 15px;
+    padding-left: 10px;
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+}
+
+.carousel-title.recommendation {
+    color: #ff00ff;
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+.carousel-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.carousel-track {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    padding: 10px 0;
+}
+
+.carousel-track::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+}
+
+.carousel-item {
+    flex: 0 0 auto;
+    width: 200px;
+    transition: transform 0.3s ease;
+}
+
+.carousel-item:hover {
+    transform: scale(1.1);
+    z-index: 10;
+}
+
+.carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid #00f3ff;
+    color: #00f3ff;
+    width: 50px;
+    height: 100%;
+    cursor: pointer;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    opacity: 0;
+}
+
+.carousel-wrapper:hover .carousel-arrow {
+    opacity: 1;
+}
+
+.carousel-arrow:hover {
+    background: rgba(0, 243, 255, 0.2);
+    border-color: #00f3ff;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+}
+
+.carousel-arrow-left {
+    left: 0;
+    border-radius: 0 5px 5px 0;
+}
+
+.carousel-arrow-right {
+    right: 0;
+    border-radius: 5px 0 0 5px;
+}
+
+.carousel-arrow svg {
+    filter: drop-shadow(0 0 5px rgba(0, 243, 255, 0.7));
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .carousel-item {
+        width: 150px;
+    }
+    
+    .carousel-arrow {
+        width: 40px;
+    }
+    
+    .carousel-title {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .carousel-item {
+        width: 120px;
+    }
+    
+    .carousel-arrow {
+        width: 30px;
+        opacity: 0.8;
+    }
+    
+    .carousel-title {
+        font-size: 1.3rem;
+    }
+}
