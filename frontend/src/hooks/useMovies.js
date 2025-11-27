@@ -7,9 +7,9 @@ export const useMovies = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
 
-    const loadRandom = useCallback(() => {
+    const loadRandom = useCallback((lang) => {
         setLoading(true);
-        fetchRandomMovies()
+        fetchRandomMovies(lang)
             .then(data => {
                 setMovies(data);
                 setLoading(false);

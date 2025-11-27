@@ -39,3 +39,29 @@ export const createProfile = async (token, name, avatar, isKid) => {
     }
     return response.json();
 };
+
+export const updateProfile = async (token, profileId, name, isKid) => {
+    const response = await fetch(`http://localhost:8002/profiles/${profileId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, name, isKid })
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || error.error || 'Error actualizando perfil');
+    }
+    return response.json();
+};
+
+export const deleteProfile = async (token, profileId) => {
+    const response = await fetch(`http://localhost:8002/profiles/${profileId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || error.error || 'Error eliminando perfil');
+    }
+    return response.json();
+};

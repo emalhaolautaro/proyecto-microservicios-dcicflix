@@ -21,10 +21,11 @@ services:
     restart: always
     ports:
       - "27017:27017"
+    command: [ "mongod", "--quiet" ]
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -109,13 +110,13 @@ services:
     container_name: rabbitmq_broker
     restart: always
     ports:
-      - "5672:5672"    # Puerto AMQP
-      - "15672:15672"  # Puerto Management UI
+      - "5672:5672" # Puerto AMQP
+      - "15672:15672" # Puerto Management UI
     environment:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=admin
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5

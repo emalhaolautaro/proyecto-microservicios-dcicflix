@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Header = ({ currentProfile, onLogout, onChangeProfile, onShowRatings }) => {
+const Header = ({ currentProfile, onLogout, onChangeProfile, onShowRatings, onFilterLanguage }) => {
     if (!currentProfile) return null;
 
     return (
@@ -14,6 +14,56 @@ const Header = ({ currentProfile, onLogout, onChangeProfile, onShowRatings }) =>
             </h1>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <button
+                    onClick={() => onFilterLanguage('Spanish')}
+                    style={{
+                        background: 'transparent',
+                        border: '1px solid #00f3ff',
+                        color: '#00f3ff',
+                        padding: '8px 15px',
+                        cursor: 'pointer',
+                        fontFamily: 'monospace',
+                        fontSize: '0.9rem',
+                        borderRadius: '5px',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.background = '#00f3ff';
+                        e.target.style.color = 'black';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = '#00f3ff';
+                    }}
+                >
+                    🇪🇸 Películas en Español
+                </button>
+
+                <button
+                    onClick={() => onFilterLanguage('English')}
+                    style={{
+                        background: 'transparent',
+                        border: '1px solid #00f3ff',
+                        color: '#00f3ff',
+                        padding: '8px 15px',
+                        cursor: 'pointer',
+                        fontFamily: 'monospace',
+                        fontSize: '0.9rem',
+                        borderRadius: '5px',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.background = '#00f3ff';
+                        e.target.style.color = 'black';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = '#00f3ff';
+                    }}
+                >
+                    🇺🇸 Películas en Inglés
+                </button>
+
                 <button
                     onClick={onShowRatings}
                     style={{

@@ -58,6 +58,25 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('userProfiles', JSON.stringify(profilesWithEmail));
     };
 
+    // Verificar expiración del token al cargar
+    useEffect(() => {
+        if (authToken) {
+            try {
+                // Decodificar payload del JWT (parte del medio)
+                const payload = JSON.parse(atob(authToken.split('.')[1]));
+                const now = Date.now() / 1000;
+
+                if (payload.exp < now) {
+                    console.warn("Token expirado, cerrando sesión...");
+                    logout();
+                }
+            } catch (e) {
+                console.error("Error verificando token:", e);
+                logout();
+            }
+        }
+    }, [authToken]);
+
     return (
         <AuthContext.Provider value={{ isLoggedIn, authToken, userEmail, userProfiles, login, logout, updateProfiles }}>
             {children}

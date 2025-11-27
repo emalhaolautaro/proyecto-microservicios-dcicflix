@@ -26,14 +26,27 @@ app.get('/', (req, res) => {
   res.json({ message: 'Movies API funcionando correctamente' });
 });
 
-// Obtener todas las películas
+// Obtener todas las películas (con soporte opcional para filtro de idioma)
 app.get('/movies', async (req, res) => {
   try {
     const size = parseInt(req.query.size) || 12;
-    
-    const movies = await db.collection('movies').aggregate([
-      { $sample: { size: size } } // Magia de MongoDB: Elige al azar nativamente
-    ]).toArray();
+    const lang = req.query.lang;
+
+    const pipeline = [];
+
+    if (lang) {
+      // Si hay idioma, filtramos primero
+      pipeline.push({
+        $match: {
+          languages: { $regex: lang, $options: 'i' }
+        }
+      });
+    }
+
+    // Siempre aplicamos el sample al final (o después del filtro)
+    pipeline.push({ $sample: { size: size } });
+
+    const movies = await db.collection('movies').aggregate(pipeline).toArray();
 
     res.json({
       count: movies.length,
@@ -52,7 +65,7 @@ app.get('/movies/search/:query', async (req, res) => {
     const movies = await db.collection('movies').find({
       title: { $regex: searchQuery, $options: 'i' }
     }).limit(20).toArray();
-    
+
     res.json({
       count: movies.length,
       movies: movies
@@ -68,11 +81,11 @@ app.get('/movies/:id', async (req, res) => {
   try {
     const { ObjectId } = require('mongodb');
     const movie = await db.collection('movies').findOne({ _id: new ObjectId(req.params.id) });
-    
+
     if (!movie) {
       return res.status(404).json({ error: 'Película no encontrada' });
     }
-    
+
     res.json(movie);
   } catch (error) {
     console.error('Error obteniendo película:', error);
@@ -97,7 +110,7 @@ app.get('/comments', async (req, res) => {
 // Iniciar servidor
 async function startServer() {
   await connectDB();
-  
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
   });

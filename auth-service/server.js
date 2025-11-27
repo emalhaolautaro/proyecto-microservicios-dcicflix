@@ -61,7 +61,7 @@ app.post('/login', async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: "Contraseña incorrecta" });
 
     // Generar Token
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '24h' });
 
     // Devolvemos el token y los perfiles para que el frontend muestre el selector
     res.json({
@@ -107,14 +107,77 @@ app.post('/profiles', async (req, res) => {
   }
 });
 
-// 4. OBTENER PERFILES (Para refrescar la pantalla de selección)
-app.get('/profiles', async (req, res) => {
-  // Aquí deberías leer el header Authorization, decodificar el token y buscar el usuario
-  // Por simplicidad del ejemplo, asumiremos que se pasa el userId o email por query param
-  // ... Implementación pendiente de autenticación real ...
-  res.json({ message: "Endpoint listo para implementar validación de token" });
+// 4. ACTUALIZAR PERFIL (PUT)
+app.put('/profiles/:profileId', async (req, res) => {
+  try {
+    console.log(`PUT /profiles/${req.params.profileId}`, req.body);
+    const { token, name, isKid } = req.body;
+    const { profileId } = req.params;
+
+    if (!token) return res.status(401).json({ message: "No autorizado" });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const profile = user.profiles.id(profileId);
+    if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+
+    // Validar nombre único (excluyendo el perfil actual)
+    if (name) {
+      const nameExists = user.profiles.some(p => p.name.toLowerCase() === name.toLowerCase() && p._id.toString() !== profileId);
+      if (nameExists) {
+        return res.status(400).json({ message: "Ya existe un perfil con ese nombre" });
+      }
+      profile.name = name;
+    }
+
+    if (typeof isKid === 'boolean') {
+      profile.isKid = isKid;
+    }
+
+    await user.save();
+    res.json({ profiles: user.profiles });
+
+  } catch (error) {
+    console.error("PUT Error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// 5. ELIMINAR PERFIL (DELETE)
+app.delete('/profiles/:profileId', async (req, res) => {
+  try {
+    console.log(`DELETE /profiles/${req.params.profileId}`, req.body, req.query);
+    const token = req.body.token || req.query.token;
+    const { profileId } = req.params;
+
+    if (!token) return res.status(401).json({ message: "No autorizado" });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const profile = user.profiles.id(profileId);
+    if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+
+    // Opcional: Impedir borrar el último perfil
+    if (user.profiles.length <= 1) {
+      return res.status(400).json({ message: "No puedes eliminar el último perfil" });
+    }
+
+    user.profiles.pull(profileId);
+
+    await user.save();
+    res.json({ profiles: user.profiles });
+
+  } catch (error) {
+    console.error("DELETE Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Auth Service corriendo en el puerto ${PORT}`);
