@@ -29,6 +29,8 @@ try:
 except Exception as e:
     print(f"❌ Error al conectar con MongoDB: {e}")
 
+# --- FUNCIONES DE CARGA DE DATOS ---
+
 def load_movies_from_mongodb():
     """Carga todas las películas de MongoDB"""
     try:
@@ -37,7 +39,7 @@ def load_movies_from_mongodb():
         movies_data = list(movies_collection.find({}))
         df = pd.DataFrame(movies_data)
         
-        # Eliminar duplicados por título (conservar solo el primero)
+        # Eliminar duplicados por título
         if not df.empty and 'title' in df.columns:
             df = df.drop_duplicates(subset=['title'], keep='first')
         
@@ -55,8 +57,14 @@ def load_interactions_from_mongodb():
         interactions_data = list(interactions_collection.find({}))
         df = pd.DataFrame(interactions_data)
         
-        # Eliminar duplicados por user_id, profile_name y movie_id
+        # Normalizar movie_id
+        if not df.empty and 'movie_id' in df.columns:
+            df['movie_id'] = df['movie_id'].astype(str)
+
+        # Eliminar duplicados
         if not df.empty and 'user_id' in df.columns and 'profile_name' in df.columns and 'movie_id' in df.columns:
+            if 'timestamp' in df.columns:
+                df = df.sort_values('timestamp', ascending=False)
             df = df.drop_duplicates(subset=['user_id', 'profile_name', 'movie_id'], keep='first')
         
         return df
@@ -66,173 +74,154 @@ def load_interactions_from_mongodb():
 
 
 def extract_rating_value(rating_data):
-    """Extrae el valor numérico del rating en diferentes formatos"""
     if isinstance(rating_data, dict):
         if '$numberDouble' in rating_data:
-            try:
-                return float(rating_data['$numberDouble'])
-            except (ValueError, TypeError):
-                return None
-    elif isinstance(rating_data, (int, float)):
-        return float(rating_data)
+            try: return float(rating_data['$numberDouble'])
+            except: return None
+    elif isinstance(rating_data, (int, float)): return float(rating_data)
     elif isinstance(rating_data, str):
-        try:
-            return float(rating_data)
-        except (ValueError, TypeError):
-            return None
+        try: return float(rating_data)
+        except: return None
     return None
 
 
 def format_genres(genres_data):
-    """Formatea los géneros a string separado por comas"""
-    if isinstance(genres_data, list):
-        return ', '.join(genre for genre in genres_data if genre is not None)
-    elif isinstance(genres_data, str):
-        return genres_data
+    if isinstance(genres_data, list): return ', '.join(g for g in genres_data if g)
+    elif isinstance(genres_data, str): return genres_data
     return None
 
 
 def clean_float_values(df):
-    """Limpia valores infinitos y NaN de todas las columnas numéricas del DataFrame"""
     df_clean = df.copy()
     for col in df_clean.columns:
         if df_clean[col].dtype in ['float64', 'float32']:
-            df_clean[col] = df_clean[col].replace([np.inf, -np.inf], np.nan)
-            df_clean[col] = df_clean[col].fillna(0)
-            df_clean[col] = df_clean[col].astype(float)
+            df_clean[col] = df_clean[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
     return df_clean
 
 
 def prepare_data(dfmovies, dfopiniones):
-    """Prepara y procesa los datos de películas e interacciones"""
-    # Extraer el valor del $oid de la columna '_id'
-    dfmovies['movie_id_str'] = dfmovies['_id'].apply(
-        lambda x: str(x['$oid']) if isinstance(x, dict) and '$oid' in x else str(x)
-    )
-    
-    # Extraer y procesar el 'rating' de la columna 'imdb'
-    dfmovies['imdb_rating'] = dfmovies['imdb'].apply(
-        lambda x: extract_rating_value(x.get('rating')) if isinstance(x, dict) else None
-    )
-    
-    # Formatear la columna 'genres'
+    # Preparar Movies
+    dfmovies['movie_id_str'] = dfmovies['_id'].apply(lambda x: str(x['$oid']) if isinstance(x, dict) and '$oid' in x else str(x))
+    dfmovies['imdb_rating'] = dfmovies['imdb'].apply(lambda x: extract_rating_value(x.get('rating')) if isinstance(x, dict) else None)
     dfmovies['formatted_genres'] = dfmovies['genres'].apply(format_genres)
     
-    # Manejar tabla de opiniones vacía
+    # Limpieza para los nuevos features (Plot y Director)
+    dfmovies['plot'] = dfmovies['plot'].fillna('')
+    dfmovies['directors'] = dfmovies['directors'].apply(lambda x: x if isinstance(x, list) else [])
+
     if dfopiniones.empty:
-        return pd.DataFrame(columns=[
-            'user_id', 'profile_name', 'movie_title', 'user_score', 'average_imdb_rating',
-            'movie_id_str', 'genres', 'poster', 'plot', 'fullplot', 'cast', 'directors', 'writers'
-        ])
+        return pd.DataFrame(columns=['user_id', 'profile_name', 'movie_title', 'user_score', 'average_imdb_rating', 'movie_id_str', 'genres', 'poster', 'plot', 'fullplot', 'cast', 'directors', 'writers'])
     
-    # Asegurar que el 'movie_id' en dfopiniones sea string
     dfopiniones['movie_id'] = dfopiniones['movie_id'].astype(str)
     
-    # Unir datos
-    merged_data = pd.merge(
+    # Merge
+    merged = pd.merge(
         dfopiniones,
         dfmovies[['movie_id_str', 'title', 'imdb_rating', 'formatted_genres', 'poster', 'plot', 'fullplot', 'cast', 'directors', 'writers']],
-        left_on='movie_id',
-        right_on='movie_id_str',
+        left_on='movie_id', 
+        right_on='movie_id_str', 
         how='inner'
     )
     
-    # Seleccionar y renombrar columnas
-    final_table = merged_data[[
-        'user_id', 'profile_name', 'title', 'score', 'imdb_rating',
-        'movie_id_str', 'formatted_genres', 'poster', 'plot', 'fullplot', 'cast', 'directors', 'writers'
-    ]]
+    # Renombrar
+    merged = merged.rename(columns={'title': 'movie_title', 'score': 'user_score', 'formatted_genres': 'genres'})
     
-    final_table = final_table.rename(columns={
-        'title': 'movie_title',
-        'score': 'user_score',
-        'imdb_rating': 'average_imdb_rating',
-        'formatted_genres': 'genres'
-    })
+    # Limpiar columnas duplicadas
+    merged = merged.loc[:, ~merged.columns.duplicated(keep='first')]
     
-    return final_table
+    # Seleccionar columnas necesarias
+    cols = [
+        'user_id', 'profile_name', 'movie_id', 'movie_id_str', 'user_score', 'movie_title', 
+        'genres', 'poster', 'plot', 'fullplot', 'cast', 'directors', 'writers', 'imdb_rating'
+    ]
+    cols = [c for c in cols if c in merged.columns]
+    
+    # Resetear índice
+    return merged[cols].copy().reset_index(drop=True)
 
 
 def recommend_movies(df_interactions, df_movies_metadata, target_user_email, target_profile_name):
-    """Genera recomendaciones de películas para un usuario y perfil específico"""
+    """Genera recomendaciones de películas usando lógica Híbrida Avanzada"""
     
-    # Procesar metadatos de películas
+    # --- CONFIGURACIÓN ---
+    MIN_RATINGS_PERSONALIZED = 10
+    MIN_RATINGS_NEIGHBORS = 30
+    MIN_COMMON_MOVIES = 5
+
+    # Procesar metadatos de películas (Candidatos)
     movies_df_processed = df_movies_metadata.copy()
     
     if 'movie_id_str' not in movies_df_processed.columns:
-        movies_df_processed['movie_id_str'] = movies_df_processed['_id'].apply(
-            lambda x: str(x['$oid']) if isinstance(x, dict) and '$oid' in x else str(x)
-        )
+        movies_df_processed['movie_id_str'] = movies_df_processed['_id'].apply(lambda x: str(x['$oid']) if isinstance(x, dict) and '$oid' in x else str(x))
     
     if 'imdb_rating' not in movies_df_processed.columns:
-        movies_df_processed['imdb_rating'] = movies_df_processed['imdb'].apply(
-            lambda x: extract_rating_value(x.get('rating')) if isinstance(x, dict) else None
-        )
-    
+        movies_df_processed['imdb_rating'] = movies_df_processed['imdb'].apply(lambda x: extract_rating_value(x.get('rating')) if isinstance(x, dict) else None)
+    movies_df_processed['imdb_rating'] = movies_df_processed['imdb_rating'].fillna(5.0)
+
     if 'formatted_genres' not in movies_df_processed.columns:
         movies_df_processed['formatted_genres'] = movies_df_processed['genres'].apply(format_genres)
+        
+    movies_df_processed['plot'] = movies_df_processed['plot'].fillna('')
+    movies_df_processed['directors'] = movies_df_processed['directors'].apply(lambda x: x if isinstance(x, list) else [])
     
-    movies_df_processed['movie_id_str'] = movies_df_processed['movie_id_str'].astype(str)
-    movies_df_processed['imdb_rating'] = movies_df_processed['imdb_rating'].fillna(5.0)
+    # --- FILTRAR HISTORIAL (Tu lógica segura) ---
+    seen_movie_titles = set()
     
-    # Verificar interacciones
     if df_interactions.empty:
-        print("⚠️ No hay interacciones. Cold Start Global.")
         user_history = pd.DataFrame()
     else:
         user_id_col = 'user_id' if 'user_id' in df_interactions.columns else 'user_id'
         profile_col = 'profile_name' if 'profile_name' in df_interactions.columns else 'profile_name'
         
+        # Reset index para evitar duplicados de labels
         user_history = df_interactions[
             (df_interactions[user_id_col] == target_user_email) &
             (df_interactions[profile_col] == target_profile_name)
-        ]
-    
+        ].copy().reset_index(drop=True)
+
+        if not user_history.empty:
+            if 'movie_title' in user_history.columns:
+                seen_movie_titles = set(user_history['movie_title'].dropna().astype(str).str.strip().unique())
+            elif 'title' in user_history.columns:
+                seen_movie_titles = set(user_history['title'].dropna().astype(str).str.strip().unique())
+            print(f"🎬 Películas vistas detectadas: {len(seen_movie_titles)}")
+
     # Columnas de resultado
     final_columns = [
         'movie_id_str', 'title', 'poster', 'plot', 'fullplot', 'cast', 'directors',
         'writers', 'formatted_genres', 'imdb_rating', 'year', 'runtime', 'genres', 'imdb',
-        'predicted_score'
+        'predicted_score', 'match_reason', 'score_genre', 'score_director', 'score_plot', 'score_social'
     ]
 
-    # --- COLD START / POCOS DATOS ---
-    if user_history.empty or len(user_history) < 5:
-        print(f"⚠️ Cold Start para {target_user_email}.")
+    num_ratings = len(user_history)
+    print(f"📊 Usuario: {target_user_email} | Calificaciones: {num_ratings}")
+
+    # --- FASE 1: COLD START (< 10 calificaciones) ---
+    if user_history.empty or num_ratings < MIN_RATINGS_PERSONALIZED:
+        print(f"❄️ Modo Cold Start.")
         
-        unseen_movies_df = movies_df_processed.copy()
+        # Filtro maestro por título
+        unseen_movies_df = movies_df_processed[
+            ~movies_df_processed['title'].isin(seen_movie_titles)
+        ].copy()
+        
         unseen_movies_df['predicted_score'] = unseen_movies_df['imdb_rating'] / 10.0
         unseen_movies_df['predicted_score'] = unseen_movies_df['predicted_score'].fillna(0.5)
+        unseen_movies_df['match_reason'] = 'Tendencia Global'
         
-        # Ordenamos por calidad
         recommendations = unseen_movies_df.sort_values(by='predicted_score', ascending=False)
         
-        # --- SELECCIÓN ALEATORIA DEL TOP 50 ---
-        available_columns = [col for col in final_columns if col in recommendations.columns]
-        
-        # 1. Eliminar duplicados antes de seleccionar
+        # Pool Aleatorio
+        available_cols = [col for col in final_columns if col in recommendations.columns]
         recommendations = recommendations.drop_duplicates(subset=['movie_id_str'], keep='first')
+        top_50_pool = recommendations[available_cols].head(50)
+        result = top_50_pool.sample(n=min(12, len(top_50_pool))) if not top_50_pool.empty else top_50_pool
         
-        # 2. Tomar el Top 50
-        top_50_pool = recommendations[available_columns].head(50)
-        
-        # 3. Elegir 10 al azar de ese pool
-        if not top_50_pool.empty:
-            result = top_50_pool.sample(n=min(10, len(top_50_pool)))
-        else:
-            result = top_50_pool # Vacío
-            
-        # Relleno si faltan (caso raro)
-        if len(result) < 10:
-            remaining = recommendations[~recommendations['movie_id_str'].isin(result['movie_id_str'])][available_columns]
-            result = pd.concat([result, remaining.head(10 - len(result))], ignore_index=True)
-            
         result = clean_float_values(result)
-        if 'imdb' in result.columns:
-            result['imdb'] = result['imdb'].apply(lambda x: str(x) if x is not None else None)
-        
+        if 'imdb' in result.columns: result['imdb'] = result['imdb'].apply(lambda x: str(x) if x is not None else None)
         return result
     
-    # --- ALGORITMO DE RECOMENDACIÓN ---
+    # --- PERFILADO AVANZADO (Lobo Solitario / Híbrido) ---
     
     movie_id_col = 'movie_id_str' if 'movie_id_str' in user_history.columns else 'movie_id'
     score_col = 'user_score' if 'user_score' in user_history.columns else 'score'
@@ -240,40 +229,54 @@ def recommend_movies(df_interactions, df_movies_metadata, target_user_email, tar
     
     seen_movies = user_history[movie_id_col].unique().tolist()
     
-    # 1. Géneros Favoritos
-    highly_rated_movies = user_history[user_history[score_col] >= 7]
+    # 1. Perfil de GÉNEROS (Likes >= 7)
+    liked_movies = user_history[user_history[score_col] >= 7].copy()
     favorite_genres_list = []
-    for genres_str in highly_rated_movies[genres_col].dropna():
-        favorite_genres_list.extend([genre.strip() for genre in genres_str.split(',') if genre.strip()])
+    for genres_str in liked_movies[genres_col].dropna():
+        favorite_genres_list.extend([genre.strip() for genre in str(genres_str).split(',') if genre.strip()])
     
     favorite_genres_str = ''
+    top_genres = []
     if favorite_genres_list:
         genre_counts = Counter(favorite_genres_list)
-        favorite_genres = [genre for genre, count in genre_counts.most_common(5)]
-        favorite_genres_str = ', '.join(favorite_genres)
-        print(f"❤️ Géneros favoritos: {favorite_genres_str}")
+        top_genres = [genre for genre, count in genre_counts.most_common(5)]
+        favorite_genres_str = ', '.join(top_genres)
+        print(f"❤️ Géneros favoritos: {top_genres}")
+
+    # 2. Perfil de DIRECTORES
+    directors_list = []
+    if 'directors' in liked_movies.columns:
+        for d_list in liked_movies['directors']:
+            if isinstance(d_list, list): directors_list.extend(d_list)
+    top_directors = [d[0] for d in Counter(directors_list).most_common(3)] if directors_list else []
+    print(f"🎬 Directores favoritos: {top_directors}")
+
+    # 3. Perfil de TRAMA/PLOT (NUEVO - NLP)
+    loved_movies = user_history[user_history[score_col] >= 9]
+    user_plot_corpus = " ".join(loved_movies['plot'].astype(str).tolist()) if 'plot' in loved_movies.columns else ""
     
-    unseen_movies_df = movies_df_processed[~movies_df_processed['movie_id_str'].isin(seen_movies)].copy()
-    unseen_movies_df['formatted_genres'] = unseen_movies_df['formatted_genres'].fillna('')
+    # --- GENERACIÓN DE CANDIDATOS (FILTRANDO VISTAS POR TÍTULO) ---
+    candidates = movies_df_processed[
+        ~movies_df_processed['title'].isin(seen_movie_titles)
+    ].copy()
+    candidates['formatted_genres'] = candidates['formatted_genres'].fillna('')
     
-    # 2. Vecinos
+    # --- CÁLCULO DE SCORES ---
+
+    # A. Score SOCIAL (Vecinos)
+    candidates['score_social'] = 0.0
     has_enough_neighbors = False
-    if not df_interactions.empty:
-        # ... (Lógica de vecinos igual que antes) ...
+    
+    if not df_interactions.empty and num_ratings >= MIN_RATINGS_NEIGHBORS:
         user_rated = user_history[[movie_id_col, score_col]].copy()
         user_rated.columns = ['movie_id_str', 'target_user_score']
         
-        other_users = df_interactions[
-            ~((df_interactions[user_id_col] == target_user_email) &
-              (df_interactions[profile_col] == target_profile_name))
-        ].copy()
+        other_users = df_interactions[~((df_interactions[user_id_col] == target_user_email) & (df_interactions[profile_col] == target_profile_name))].copy()
         
         if not other_users.empty:
-            # Normalizar nombres para merge
-            if 'movie_id_str' not in other_users.columns:
-                other_users['movie_id_str'] = other_users.get('movie_id', '')
-            if 'user_score' not in other_users.columns:
-                other_users['user_score'] = other_users.get('score', 0)
+            # Normalizar
+            if 'movie_id_str' not in other_users.columns: other_users['movie_id_str'] = other_users.get('movie_id', '')
+            if 'user_score' not in other_users.columns: other_users['user_score'] = other_users.get('score', 0)
 
             shared = pd.merge(
                 user_rated,
@@ -284,143 +287,148 @@ def recommend_movies(df_interactions, df_movies_metadata, target_user_email, tar
             
             if not shared.empty:
                 shared['diff'] = abs(shared['target_user_score'] - shared['user_score'])
-                potential = shared[shared['diff'] <= 1]
-                counts = potential.groupby([user_id_col, profile_col]).size().reset_index(name='count')
-                real_neighbors = counts[counts['count'] >= 1]
+                potential_matches = shared[shared['diff'] <= 1]
+                neighbor_counts = potential_matches.groupby([user_id_col, profile_col]).size().reset_index(name='count')
+                real_neighbors = neighbor_counts[neighbor_counts['count'] >= MIN_COMMON_MOVIES]
                 
                 if not real_neighbors.empty:
                     has_enough_neighbors = True
                     print(f"🤝 Vecinos encontrados: {len(real_neighbors)}")
                     
-                    # Crear ID compuesto
                     df_interactions['uid_pid'] = df_interactions[user_id_col] + '_' + df_interactions[profile_col]
                     real_neighbors['uid_pid'] = real_neighbors[user_id_col] + '_' + real_neighbors[profile_col]
                     
-                    neighbor_data = df_interactions[df_interactions['uid_pid'].isin(real_neighbors['uid_pid'])]
-                    neighbor_unseen = neighbor_data[~neighbor_data['movie_id_str'].isin(seen_movies)]
+                    neighbor_data = df_interactions[df_interactions['uid_pid'].isin(real_neighbors['uid_pid'])].copy()
                     
-                    social_scores = neighbor_unseen.groupby('movie_id_str')['user_score'].mean().reset_index()
-                    social_scores.columns = ['movie_id_str', 'social_score_A']
+                    # --- CORRECCIÓN CRÍTICA: ASEGURAR NOMBRE DE COLUMNA ID ---
+                    # Detectamos cuál es la columna de ID disponible en neighbor_data
+                    col_id_neighbor = 'movie_id_str' if 'movie_id_str' in neighbor_data.columns else 'movie_id'
+                    col_score_neighbor = 'user_score' if 'user_score' in neighbor_data.columns else 'score'
                     
-                    unseen_movies_df = pd.merge(unseen_movies_df, social_scores, on='movie_id_str', how='left')
+                    # Filtrar basura de vecinos
+                    neighbor_good_data = neighbor_data[
+                        (~neighbor_data[col_id_neighbor].isin(seen_movies)) & 
+                        (neighbor_data[col_score_neighbor] >= 6)
+                    ]
+                    
+                    if not neighbor_good_data.empty:
+                        social_scores = neighbor_good_data.groupby(col_id_neighbor)[col_score_neighbor].mean().reset_index()
+                        social_scores.columns = ['movie_id_str', 'social_score_A'] # Estandarizamos nombre para el merge
+                        
+                        candidates = pd.merge(candidates, social_scores, on='movie_id_str', how='left')
+                        candidates['score_social'] = candidates['social_score_A'].fillna(0.0) / 10.0 
 
-    if 'social_score_A' not in unseen_movies_df.columns:
-        unseen_movies_df['social_score_A'] = 0
-    unseen_movies_df['social_score_A'] = unseen_movies_df['social_score_A'].fillna(0) / 10.0
-    
-    # 3. Scores B y C
-    unseen_movies_df['quality_score_B'] = unseen_movies_df['imdb_rating'].fillna(6.0) / 10.0
-    unseen_movies_df['bonus_score_C'] = 0.0
-    
-    if favorite_genres_str:
+    # B. Score GÉNERO
+    def calc_genre_sim(g_str):
+        if not isinstance(g_str, str): return 0.0
+        movie_g = set([x.strip() for x in g_str.split(',')])
+        user_g = set(top_genres)
+        if not user_g: return 0.0
+        return len(movie_g.intersection(user_g)) / len(user_g)
+    candidates['score_genre'] = candidates['formatted_genres'].apply(calc_genre_sim)
+
+    # C. Score DIRECTOR
+    candidates['score_director'] = candidates['directors'].apply(lambda x: 1.0 if any(d in top_directors for d in x) else 0.0)
+
+    # D. Score TRAMA (NLP)
+    candidates['score_plot'] = 0.0
+    if user_plot_corpus and len(user_plot_corpus) > 50:
         try:
-            tfidf = TfidfVectorizer(stop_words='english')
-            tfidf_matrix = tfidf.fit_transform(unseen_movies_df['formatted_genres'])
-            tfidf_user = tfidf.transform([favorite_genres_str])
-            cosine_sim = linear_kernel(tfidf_user, tfidf_matrix).flatten()
-            unseen_movies_df['bonus_score_C'] = np.where(cosine_sim > 0, 1.0, 0.0)
+            tfidf = TfidfVectorizer(stop_words='english', max_features=2000)
+            corpus = [user_plot_corpus] + candidates['plot'].tolist()
+            matrix = tfidf.fit_transform(corpus)
+            sims = linear_kernel(matrix[0:1], matrix[1:]).flatten()
+            candidates['score_plot'] = sims
         except: pass
+
+    # E. Score CALIDAD
+    candidates['score_quality'] = candidates['imdb_rating'].fillna(5.0) / 10.0
+
+    # --- PESOS Y FÓRMULA FINAL ---
     
-    # Pesos
     if has_enough_neighbors:
-        print("⚖️ Modo: Híbrido")
-        w_soc, w_qual, w_gen = 0.5, 0.2, 0.3
+        w_social, w_content, w_quality = 0.4, 0.4, 0.2
+        mode_label = "Tu Comunidad"
     else:
-        print("⚖️ Modo: Contenido Puro")
-        w_soc, w_qual, w_gen = 0.0, 0.4, 0.6
-        
-    unseen_movies_df['predicted_score'] = (
-        (unseen_movies_df['social_score_A'] * w_soc) +
-        (unseen_movies_df['quality_score_B'] * w_qual) +
-        (unseen_movies_df['bonus_score_C'] * w_gen)
+        w_social, w_content, w_quality = 0.0, 0.7, 0.3
+        mode_label = "Tus Gustos"
+
+    w_gen, w_dir, w_plt = 0.4, 0.3, 0.3
+
+    candidates['content_score'] = (
+        (candidates['score_genre'] * w_gen) +
+        (candidates['score_director'] * w_dir) +
+        (candidates['score_plot'] * w_plt)
     )
     
-    unseen_movies_df = clean_float_values(unseen_movies_df)
+    candidates['predicted_score'] = (
+        (candidates['score_social'] * w_social) +
+        (candidates['content_score'] * w_content) +
+        (candidates['score_quality'] * w_quality)
+    )
+
+    # Etiquetas
+    conditions = [
+        (candidates['score_social'] > 0.7, 'Tu comunidad la recomienda'),
+        (candidates['score_director'] > 0, 'De tu director favorito'),
+        (candidates['score_plot'] > 0.3, 'Trama similar a lo que ves'),
+        (candidates['score_genre'] > 0.5, 'De tus géneros top')
+    ]
+    candidates['match_reason'] = np.select([c[0] for c in conditions], [c[1] for c in conditions], default=f'Basado en {mode_label}')
+
+    # --- RETORNO FINAL ---
+    candidates = clean_float_values(candidates)
+    recommendations = candidates.sort_values(by='predicted_score', ascending=False)
     
-    # Ordenar ranking
-    recommendations = unseen_movies_df.sort_values(by='predicted_score', ascending=False)
-    
-    available_columns = [col for col in final_columns if col in recommendations.columns]
-    
-    # --- SELECCIÓN FINAL ALEATORIA (POOL 50) ---
-    
-    # 1. Limpiar duplicados
+    available_cols = [c for c in final_columns if c in recommendations.columns]
     recommendations = recommendations.drop_duplicates(subset=['movie_id_str'], keep='first')
     
-    # 2. Top 50 mejores matches
-    top_50_pool = recommendations[available_columns].head(50)
+    top_50_pool = recommendations[available_cols].head(50)
+    result = top_50_pool.sample(n=min(12, len(top_50_pool))) if not top_50_pool.empty else top_50_pool
     
-    # 3. Elegir 10 al azar
-    if not top_50_pool.empty:
-        result = top_50_pool.sample(n=min(12, len(top_50_pool)))
-    else:
-        result = top_50_pool
-        
-    # Relleno si faltan
-    if len(result) < 10:
-        remaining = recommendations[~recommendations['movie_id_str'].isin(result['movie_id_str'])][available_columns]
+    if len(result) < 12:
+        remaining = recommendations[~recommendations['movie_id_str'].isin(result['movie_id_str'])][available_cols]
         result = pd.concat([result, remaining.head(12 - len(result))], ignore_index=True)
         
     result = clean_float_values(result)
+    if 'imdb' in result.columns: result['imdb'] = result['imdb'].apply(lambda x: str(x) if x is not None else None)
     
-    if 'imdb' in result.columns:
-        result['imdb'] = result['imdb'].apply(lambda x: str(x) if x is not None else None)
-        
+    print(f"✅ Recomendaciones generadas. Modo: {mode_label}")
     return result
-
-
-@app.get("/")
-def root():
-    return {"message": "Recommendation Service funcionando correctamente"}
-
 
 @app.get("/recommendations")
 def get_recommendations(email: str = Query(...), profile_name: str = Query(...)):
     try:
         dfmovies = load_movies_from_mongodb()
         dfopiniones = load_interactions_from_mongodb()
-        
-        if dfmovies.empty:
-            raise HTTPException(status_code=500, detail="No se pudieron cargar las películas")
-        
-        if dfopiniones.empty:
-            print("ℹ️ Base de datos de opiniones vacía. Se procederá con Cold Start.")
+        if dfmovies.empty: raise HTTPException(status_code=500, detail="No se pudieron cargar las películas")
         
         final_table = prepare_data(dfmovies, dfopiniones)
+        recs = recommend_movies(final_table, dfmovies, email, profile_name)
         
-        recommendations = recommend_movies(final_table, dfmovies, email, profile_name)
-        recommendations = clean_float_values(recommendations)
-        
+        # Limpieza manual de tipos para JSON
         result_list = []
-        for _, row in recommendations.iterrows():
+        for _, row in recs.iterrows():
             row_dict = {}
             for col in row.index:
-                value = row[col]
-                if value is None:
-                    row_dict[col] = None
-                elif isinstance(value, (np.integer, np.int64, np.int32)):
-                    row_dict[col] = int(value)
-                elif isinstance(value, (np.floating, float)):
-                    if np.isfinite(value):
-                        row_dict[col] = float(value)
-                    else:
-                        row_dict[col] = 0.0
-                elif isinstance(value, np.ndarray):
-                    row_dict[col] = value.tolist()
-                else:
-                    row_dict[col] = value
+                val = row[col]
+                if isinstance(val, (list, np.ndarray)):
+                    if isinstance(val, np.ndarray): row_dict[col] = val.tolist()
+                    else: row_dict[col] = val
+                elif pd.isna(val) or val is None: row_dict[col] = None
+                elif isinstance(val, (np.floating, float)):
+                    row_dict[col] = float(val) if np.isfinite(val) else 0.0
+                elif isinstance(val, (np.integer, int)): row_dict[col] = int(val)
+                else: row_dict[col] = val
             result_list.append(row_dict)
-        
-        return JSONResponse(content={
-            "email": email,
-            "profile_name": profile_name,
-            "recommendations": result_list
-        })
-        
-    except HTTPException as he:
-        raise he
+
+        return JSONResponse(content={"email": email, "profile_name": profile_name, "recommendations": result_list})
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error al generar recomendaciones: {str(e)}")
+
+@app.get("/")
+def root():
+    return {"message": "Recommendation Service Active"}

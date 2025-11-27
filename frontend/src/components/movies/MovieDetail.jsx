@@ -238,6 +238,40 @@ function MovieDetail({ movie, onClose, currentProfile }) {
                             </div>
                         )}
 
+                        {/* Match Reason - Recuadro Magenta */}
+                        {movie.match_reason && (
+                            <div style={{
+                                marginBottom: '20px',
+                                padding: '12px 15px',
+                                background: 'rgba(255, 0, 255, 0.1)',
+                                border: '2px solid #ff00ff',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span style={{ fontSize: '1.5rem' }}>💡</span>
+                                <div>
+                                    <div style={{
+                                        color: '#ff00ff',
+                                        fontFamily: 'monospace',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
+                                        marginBottom: '3px'
+                                    }}>
+                                        ¿POR QUÉ TE LA RECOMENDAMOS?
+                                    </div>
+                                    <div style={{
+                                        color: '#ffaaff',
+                                        fontFamily: 'monospace',
+                                        fontSize: '0.9rem'
+                                    }}>
+                                        {movie.match_reason}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Plot */}
                         {movie.plot && (
                             <div style={{ marginBottom: '25px' }}>
