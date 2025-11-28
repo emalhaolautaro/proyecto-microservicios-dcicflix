@@ -344,7 +344,7 @@ def recommend_movies(df_interactions, df_movies_metadata, target_user_email, tar
         w_social, w_content, w_quality = 0.0, 0.7, 0.3
         mode_label = "Tus Gustos"
 
-    w_gen, w_dir, w_plt = 0.4, 0.3, 0.3
+    w_gen, w_dir, w_plt = 0.3, 0.2, 0.5
 
     candidates['content_score'] = (
         (candidates['score_genre'] * w_gen) +
