@@ -1,8 +1,18 @@
 import requests
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 app = FastAPI()
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # URL del servicio Movies dentro de la red de Docker
 MOVIES_SERVICE_URL = "http://movies-api:8000"
@@ -11,7 +21,8 @@ MOVIES_SERVICE_URL = "http://movies-api:8000"
 def search_movies(query: str):
     """
     Busca películas por nombre actuando como intermediario
-    entre el frontend y el servicio movies-api
+    entre el frontend y el servicio movies-api.
+    Elimina duplicados basándose en el título normalizado.
     """
     try:
         # Llamar al endpoint de búsqueda del movies-api
@@ -22,11 +33,25 @@ def search_movies(query: str):
         data = response.json()
         movies = data.get("movies", [])
         
-        # Retornar los resultados
+        # Eliminar duplicados basándose en título normalizado
+        unique_movies = []
+        seen_titles = set()
+        
+        for movie in movies:
+            # Normalizar título: minúsculas y sin espacios
+            title = movie.get("title", "")
+            normalized_title = title.lower().replace(" ", "")
+            
+            # Solo agregar si no hemos visto este título normalizado antes
+            if normalized_title not in seen_titles and normalized_title:
+                seen_titles.add(normalized_title)
+                unique_movies.append(movie)
+        
+        # Retornar los resultados sin duplicados
         return {
             "query": query,
-            "count": len(movies),
-            "movies": movies
+            "count": len(unique_movies),
+            "movies": unique_movies
         }
     except requests.exceptions.RequestException as e:
         raise HTTPException(

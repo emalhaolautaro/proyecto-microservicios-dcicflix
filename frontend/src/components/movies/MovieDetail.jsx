@@ -1,10 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import StarRating from '../ui/StarRating';
 
 function MovieDetail({ movie, onClose, currentProfile }) {
     const [rating, setRating] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [userRating, setUserRating] = useState(null);
+    const [loadingRating, setLoadingRating] = useState(true);
+
+    useEffect(() => {
+        checkUserRating();
+    }, [movie, currentProfile]);
+
+    const checkUserRating = async () => {
+        try {
+            setLoadingRating(true);
+            const response = await fetch(
+                `/ratings/user/${encodeURIComponent(currentProfile.userEmail)}/profile/${encodeURIComponent(currentProfile.name)}`
+            );
+            const data = await response.json();
+            const ratings = data.ratings || [];
+            
+            // Extraer movie_id de la película actual
+            let currentMovieId = null;
+            if (movie.movie_id_str) {
+                currentMovieId = movie.movie_id_str;
+            } else if (typeof movie._id === 'object' && movie._id !== null && movie._id.$oid) {
+                currentMovieId = movie._id.$oid;
+            } else if (typeof movie._id === 'string') {
+                currentMovieId = movie._id;
+            }
+            
+            // Buscar si ya calificó esta película
+            const existingRating = ratings.find(r => r.movie_id === currentMovieId);
+            if (existingRating) {
+                setUserRating(existingRating);
+            }
+        } catch (error) {
+            console.error("Error verificando calificaciones:", error);
+        } finally {
+            setLoadingRating(false);
+        }
+    };
 
     const handleSubmitRating = async () => {
         if (rating === 0) {
@@ -164,32 +201,51 @@ function MovieDetail({ movie, onClose, currentProfile }) {
                 <div style={{ display: 'flex', gap: '30px', padding: '30px', flexWrap: 'wrap' }}>
                     {/* Poster */}
                     <div style={{ flex: '0 0 250px' }}>
-                        {movie.poster ? (
-                            <img
-                                src={movie.poster}
-                                alt={movie.title}
-                                style={{
-                                    width: '100%',
-                                    borderRadius: '8px',
-                                    border: '2px solid #333',
-                                    boxShadow: '0 5px 15px rgba(0,0,0,0.5)'
-                                }}
-                            />
-                        ) : (
-                            <div style={{
+                        <img
+                            src={movie.poster || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}
+                            alt={movie.title}
+                            style={{
                                 width: '100%',
-                                aspectRatio: '2/3',
-                                background: '#111',
-                                border: '2px solid #333',
                                 borderRadius: '8px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '4rem'
-                            }}>
-                                🎬
-                            </div>
-                        )}
+                                border: '2px solid #333',
+                                boxShadow: '0 5px 15px rgba(0,0,0,0.5)',
+                                display: movie.poster ? 'block' : 'none'
+                            }}
+                            onError={(e) => {
+                                e.target.style.display = 'none';
+                                const fallback = e.target.nextElementSibling;
+                                if (fallback) fallback.style.display = 'flex';
+                            }}
+                        />
+                        <div style={{
+                            width: '100%',
+                            aspectRatio: '2/3',
+                            background: '#0a0a0a',
+                            border: '2px solid #333',
+                            borderRadius: '8px',
+                            display: !movie.poster ? 'flex' : 'none',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden'
+                        }}>
+                            <svg 
+                                width="100%" 
+                                height="100%" 
+                                viewBox="0 0 200 300" 
+                                fill="none" 
+                                xmlns="http://www.w3.org/2000/svg"
+                            >
+                                <rect x="50" y="80" width="100" height="100" stroke="#00f3ff" strokeWidth="2" fill="none" strokeDasharray="5,5"/>
+                                <circle cx="75" cy="110" r="8" fill="#00f3ff" opacity="0.5"/>
+                                <path d="M 60 150 L 80 130 L 100 145 L 130 115 L 140 125" stroke="#00f3ff" strokeWidth="2" fill="none"/>
+                                <text x="100" y="200" fontFamily="VT323, monospace" fontSize="16" fill="#00f3ff" textAnchor="middle" opacity="0.7">
+                                    NO IMAGE
+                                </text>
+                                <text x="100" y="220" fontFamily="VT323, monospace" fontSize="14" fill="#00f3ff" textAnchor="middle" opacity="0.5">
+                                    AVAILABLE
+                                </text>
+                            </svg>
+                        </div>
                     </div>
 
                     {/* Info */}
@@ -321,52 +377,120 @@ function MovieDetail({ movie, onClose, currentProfile }) {
                                 &gt; TU CALIFICACIÓN
                             </h3>
 
-                            <StarRating rating={rating} onRatingChange={setRating} />
-
-                            {submitSuccess ? (
+                            {loadingRating ? (
                                 <div style={{
-                                    marginTop: '15px',
-                                    padding: '10px',
-                                    background: '#00ff00',
-                                    color: 'black',
+                                    padding: '20px',
                                     textAlign: 'center',
-                                    borderRadius: '5px',
-                                    fontWeight: 'bold',
+                                    color: '#00f3ff',
                                     fontFamily: 'monospace'
                                 }}>
-                                    ✓ Calificación enviada exitosamente
+                                    Verificando calificaciones...
+                                </div>
+                            ) : userRating ? (
+                                <div style={{
+                                    padding: '20px',
+                                    background: 'rgba(0, 243, 255, 0.1)',
+                                    border: '2px solid #00f3ff',
+                                    borderRadius: '8px',
+                                    textAlign: 'center'
+                                }}>
+                                    <div style={{
+                                        fontSize: '3rem',
+                                        marginBottom: '10px'
+                                    }}>✓</div>
+                                    <div style={{
+                                        color: '#00f3ff',
+                                        fontFamily: 'monospace',
+                                        fontSize: '1.1rem',
+                                        fontWeight: 'bold',
+                                        marginBottom: '10px'
+                                    }}>
+                                        YA CALIFICASTE ESTA PELÍCULA
+                                    </div>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        gap: '3px',
+                                        marginBottom: '10px'
+                                    }}>
+                                        {Array.from({ length: 10 }, (_, i) => (
+                                            <span key={i} style={{
+                                                color: i < userRating.score ? '#f5c518' : '#333',
+                                                fontSize: '1.5rem'
+                                            }}>★</span>
+                                        ))}
+                                    </div>
+                                    <div style={{
+                                        color: '#f5c518',
+                                        fontFamily: 'monospace',
+                                        fontSize: '1.3rem',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {userRating.score}/10
+                                    </div>
+                                    <div style={{
+                                        color: '#666',
+                                        fontFamily: 'monospace',
+                                        fontSize: '0.85rem',
+                                        marginTop: '10px'
+                                    }}>
+                                        {new Date(userRating.timestamp).toLocaleDateString('es-ES', {
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric'
+                                        })}
+                                    </div>
                                 </div>
                             ) : (
-                                <button
-                                    onClick={handleSubmitRating}
-                                    disabled={isSubmitting || rating === 0}
-                                    style={{
-                                        marginTop: '15px',
-                                        width: '100%',
-                                        padding: '12px',
-                                        background: rating === 0 ? '#333' : '#00f3ff',
-                                        color: rating === 0 ? '#666' : 'black',
-                                        border: 'none',
-                                        borderRadius: '5px',
-                                        fontSize: '1rem',
-                                        fontWeight: 'bold',
-                                        cursor: rating === 0 ? 'not-allowed' : 'pointer',
-                                        transition: 'all 0.2s',
-                                        fontFamily: '"VT323", monospace'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (rating !== 0 && !isSubmitting) {
-                                            e.target.style.background = '#00d4e6';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        if (rating !== 0 && !isSubmitting) {
-                                            e.target.style.background = '#00f3ff';
-                                        }
-                                    }}
-                                >
-                                    {isSubmitting ? 'ENVIANDO...' : 'ENVIAR CALIFICACIÓN'}
-                                </button>
+                                <>
+                                    <StarRating rating={rating} onRatingChange={setRating} />
+
+                                    {submitSuccess ? (
+                                        <div style={{
+                                            marginTop: '15px',
+                                            padding: '10px',
+                                            background: '#00ff00',
+                                            color: 'black',
+                                            textAlign: 'center',
+                                            borderRadius: '5px',
+                                            fontWeight: 'bold',
+                                            fontFamily: 'monospace'
+                                        }}>
+                                            ✓ Calificación enviada exitosamente
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleSubmitRating}
+                                            disabled={isSubmitting || rating === 0}
+                                            style={{
+                                                marginTop: '15px',
+                                                width: '100%',
+                                                padding: '12px',
+                                                background: rating === 0 ? '#333' : '#00f3ff',
+                                                color: rating === 0 ? '#666' : 'black',
+                                                border: 'none',
+                                                borderRadius: '5px',
+                                                fontSize: '1rem',
+                                                fontWeight: 'bold',
+                                                cursor: rating === 0 ? 'not-allowed' : 'pointer',
+                                                transition: 'all 0.2s',
+                                                fontFamily: '"VT323", monospace'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (rating !== 0 && !isSubmitting) {
+                                                    e.target.style.background = '#00d4e6';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (rating !== 0 && !isSubmitting) {
+                                                    e.target.style.background = '#00f3ff';
+                                                }
+                                            }}
+                                        >
+                                            {isSubmitting ? 'ENVIANDO...' : 'ENVIAR CALIFICACIÓN'}
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
