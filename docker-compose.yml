@@ -10,10 +10,15 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    networks:
+      - frontend_network
     depends_on:
       - random-movies-service
       - calification-service
       - search-movies-service
+      - auth-service
+      - ratings-service
+      - recommendation-service
 
   mongodb:
     image: mongo:latest
@@ -24,6 +29,8 @@ services:
     command: [ "mongod", "--quiet" ]
     volumes:
       - mongo_data:/data/db
+    networks:
+      - backend_network
     healthcheck:
       test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 5s
@@ -49,6 +56,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+    networks:
+      - backend_network
 
   movies-api:
     build: ./movies-api
@@ -66,6 +75,8 @@ services:
     volumes:
       - ./movies-api:/src
       - /src/node_modules
+    networks:
+      - backend_network
 
   random-movies-service:
     build: ./random-movies-service
@@ -77,6 +88,9 @@ services:
       - movies-api
     volumes:
       - ./random-movies-service:/app
+    networks:
+      - frontend_network 
+      - backend_network
 
   search-movies-service:
     build: ./search-movies-service
@@ -88,6 +102,9 @@ services:
       - movies-api
     volumes:
       - ./search-movies-service:/app
+    networks:
+      - frontend_network 
+      - backend_network 
 
   auth-service:
     build: ./auth-service
@@ -103,25 +120,28 @@ services:
     volumes:
       - ./auth-service:/app
       - /app/node_modules
+    networks:
+      - frontend_network
+      - backend_network
 
-  # RabbitMQ para el sistema de mensajería
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq_broker
     restart: always
     ports:
-      - "5672:5672" # Puerto AMQP
-      - "15672:15672" # Puerto Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=admin
+    networks:
+      - backend_network
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Servicio para recibir calificaciones y enviarlas a RabbitMQ
   calification-service:
     build: ./calification-service
     container_name: calification_service
@@ -137,8 +157,10 @@ services:
     volumes:
       - ./calification-service:/app
       - /app/node_modules
+    networks:
+      - frontend_network 
+      - backend_network
 
-  # Servicio consumidor que guarda opiniones en MongoDB
   opinion-service:
     build: ./opinion-service
     container_name: opinion_service
@@ -155,8 +177,9 @@ services:
     volumes:
       - ./opinion-service:/app
       - /app/node_modules
+    networks:
+      - backend_network
 
-  # Servicio para consultar calificaciones de usuarios
   ratings-service:
     build: ./ratings-service
     container_name: ratings_service
@@ -171,8 +194,10 @@ services:
     volumes:
       - ./ratings-service:/app
       - /app/node_modules
+    networks:
+      - frontend_network
+      - backend_network 
 
-  # Servicio de recomendaciones
   recommendation-service:
     build: ./recommendation-service
     container_name: recommendation_service
@@ -186,6 +211,17 @@ services:
         condition: service_healthy
     volumes:
       - ./recommendation-service:/app
+    networks:
+      - frontend_network  
+      - backend_network   
+
+networks:
+  frontend_network:
+    driver: bridge
+    name: dcicflix_frontend
+  backend_network:
+    driver: bridge
+    name: dcicflix_backend
 
 volumes:
   mongo_data:
