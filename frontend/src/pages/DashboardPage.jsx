@@ -43,7 +43,6 @@ const DashboardPage = () => {
                 onLogout={logout} // Logout global
                 onChangeProfile={handleLogout} // Volver a selección de perfil
                 onShowRatings={() => setShowRatings(true)}
-                onFilterLanguage={loadRandom}
             />
 
             <main>

@@ -26,25 +26,12 @@ app.get('/', (req, res) => {
   res.json({ message: 'Movies API funcionando correctamente' });
 });
 
-// Obtener todas las películas (con soporte opcional para filtro de idioma)
+// Obtener todas las películas
 app.get('/movies', async (req, res) => {
   try {
     const size = parseInt(req.query.size) || 12;
-    const lang = req.query.lang;
 
-    const pipeline = [];
-
-    if (lang) {
-      // Si hay idioma, filtramos primero
-      pipeline.push({
-        $match: {
-          languages: { $regex: lang, $options: 'i' }
-        }
-      });
-    }
-
-    // Siempre aplicamos el sample al final (o después del filtro)
-    pipeline.push({ $sample: { size: size } });
+    const pipeline = [{ $sample: { size: size } }];
 
     const movies = await db.collection('movies').aggregate(pipeline).toArray();
 

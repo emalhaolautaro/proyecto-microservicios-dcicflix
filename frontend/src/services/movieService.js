@@ -1,8 +1,5 @@
-export const fetchRandomMovies = async (lang) => {
-    let url = "/random";
-    if (lang) {
-        url += `?lang=${encodeURIComponent(lang)}`;
-    }
+export const fetchRandomMovies = async () => {
+    const url = "/random";
     const response = await fetch(url);
     if (!response.ok) throw new Error("Error fetching random movies");
     return response.json();

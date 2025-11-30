@@ -18,16 +18,12 @@ app.add_middleware(
 MOVIES_SERVICE_URL = "http://movies-api:8000/movies"
 
 @app.get("/random")
-def get_random_movies(lang: str = None):
+def get_random_movies():
     try:
-        print(f"🎲 Consultando catálogo completo en: {MOVIES_SERVICE_URL} con filtro lang={lang}")
+        print(f"🎲 Consultando catálogo completo en: {MOVIES_SERVICE_URL}")
         
         # 1. Pedir todas las películas al servicio Movies
-        params = {}
-        if lang:
-            params['lang'] = lang
-            
-        response = requests.get(MOVIES_SERVICE_URL, params=params, timeout=10)
+        response = requests.get(MOVIES_SERVICE_URL, timeout=10)
         response.raise_for_status()
         
         # Extraer la lista de películas de la respuesta JSON
